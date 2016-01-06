@@ -6,6 +6,7 @@ var debug = true,
     tabs = require("sdk/tabs"),
     featuresModel = require("lib/features"),
     statsModel = require("lib/stats"),
+    {Cc, Ci, Cu} = require("chrome"),
     onPrefOpen;
 
 

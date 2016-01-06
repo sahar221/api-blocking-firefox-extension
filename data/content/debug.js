@@ -1,5 +1,11 @@
 (function () {
-    window.UICGLOBAL = {};
+
+    var scriptGlobal = createObjectIn(unsafeWindow, {defineAs: "UICGLOBAL"});
+
+    window.UICGLOBAL = {
+        "script": scriptGlobal
+    };
+
 
     /**
      * Wrapper function that'll print the given debug message to the console
@@ -21,4 +27,7 @@
             console.log(msg);
         };
     }());
+    window.UICGLOBAL.script.debug = exportFunction(window.UICGLOBAL.debug, unsafeWindow, {
+        allowCrossOriginArguments: true
+    })
 }());
