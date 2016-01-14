@@ -4,10 +4,39 @@ var debug = true,
     pageMod = require("sdk/page-mod"),
     buttons = require('sdk/ui/button/action'),
     tabs = require("sdk/tabs"),
+    system = require("sdk/system"),
+    fileIO = require("sdk/io/file"),
     featuresModel = require("lib/features"),
     statsModel = require("lib/stats"),
-    {Cc, Ci, Cu} = require("chrome"),
+    featuresRuleParser = require("lib/featureParser"),
+    featuresToCount = featuresRuleParser.parse("./features.csv"),
+    fileWriter,
     onPrefOpen;
+
+
+fileWriter = (function () {
+
+    var outputPath = system.staticArgs.output,
+        textWriter;
+
+    if (outputPath === undefined) {
+        throw "Firefox opened without specifiying a path to write feature data to.  Should be called with something like `--static-args={output: '/tmp/out'}.";
+    }
+
+    textWriter = fileIO.open(outputPath, "w");
+    if (!textWriter.closed) {
+        throw "Unable to open file to write to at '" + outputPath + "'.";
+    }
+
+    return {
+        write: function (data) {
+            return textWriter.write(JSON.stringify(data) + "\n");
+        },
+        close: function () {
+            return textWriter.close();
+        }
+    };
+}());
 
 
 onPrefOpen = tab => {
@@ -17,7 +46,8 @@ onPrefOpen = tab => {
         var worker = tab.attach({
             contentScriptFile: "./prefs/content-script.js",
             contentScriptOptions: {
-                debug: debug
+                debug: debug,
+                features: featuresToCount
             }
         });
 
@@ -62,7 +92,7 @@ onPrefOpen = tab => {
 
 pageMod.PageMod({
     include: "*",
-//    exclude: "*/prefs/index.html",
+    exclude: "*/prefs/index.html",
     contentScriptOptions: {
         debug: debug
     },
@@ -72,10 +102,11 @@ pageMod.PageMod({
         "./content/instrument.js"
     ],
     contentScriptWhen: "start",
-    onAttach: worker => {
+    attachTo: ['top', 'frame'],
+    onAttach: function (worker) {
 
-        worker.port.on("content-request-existing-rules", () => {
-            worker.port.emit("content-receive-existing-rules", featuresModel.all());
+        worker.port.on("content-request-recorded-data", function (featureData) {
+            fileWriter.write(featureData);
         });
 
         worker.port.on("content-request-record-feature-block", function (featureDetails) {

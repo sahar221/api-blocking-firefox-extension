@@ -1,34 +1,21 @@
 (function () {
     "use strict";
 
-    var global = window.UICGLOBAL;
-    global.featuresLoaded = false;
-
-
-    self.port.on("content-receive-existing-rules", function (features) {
-
-        var parsedFeatures = {
+    var global = window.UICGLOBAL,
+        parsedFeatures = {
             event: [],
             method: [],
             promise: [],
             property: []
         };
+    global.featuresLoaded = false;
 
-        global.debug("content-receive-existing-rules");
-
-        Object.keys(features).forEach(function (aName) {
-            var evaledRule = eval("[" + features[aName] + "]")[0];
-            parsedFeatures[evaledRule.type].push(evaledRule.feature);
-        });
-
-        global.script.features = cloneInto(parsedFeatures, unsafeWindow);
-
-        global.featuresLoaded = true;
-        if (global.instrumentTheDom) {
-            global.instrumentTheDom();
-        }
-    });
-    self.port.emit("content-request-existing-rules");
+    self.options.features.forEach(aRule => parsedFeatures[aRule.type].push(aRule.feature));
+    global.script.features = cloneInto(parsedFeatures, unsafeWindow);
+    global.featuresLoaded = true;
+    if (global.instrumentTheDom) {
+        global.instrumentTheDom();
+    }
 
     self.port.on("content-receive-should-reload", () => {
         unsafeWindow.location.reload();
