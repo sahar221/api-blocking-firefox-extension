@@ -1,100 +1,83 @@
 "use strict";
 
-var debug = true,
+var debug = false,
+    timers = require("sdk/timers"),
     pageMod = require("sdk/page-mod"),
-    buttons = require('sdk/ui/button/action'),
     tabs = require("sdk/tabs"),
     system = require("sdk/system"),
     fileIO = require("sdk/io/file"),
+    events = require("sdk/system/events"),
     featuresModel = require("lib/features"),
     statsModel = require("lib/stats"),
     featuresRuleParser = require("lib/featureParser"),
-    featuresToCount = featuresRuleParser.parse("./features.csv"),
-    fileWriter,
-    onPrefOpen;
+    featuresToCount = featuresRuleParser.parse("features-less.csv"),
+    passedArguments = system.staticArgs || {},
+    currentProcessFeatures,
+    fileWriter;
 
 
-fileWriter = (function () {
+currentProcessFeatures = (function () {
 
-    var outputPath = system.staticArgs.output,
-        textWriter;
-
-    if (outputPath === undefined) {
-        throw "Firefox opened without specifiying a path to write feature data to.  Should be called with something like `--static-args={output: '/tmp/out'}.";
-    }
-
-    textWriter = fileIO.open(outputPath, "w");
-    if (!textWriter.closed) {
-        throw "Unable to open file to write to at '" + outputPath + "'.";
-    }
+    var domainToFeatures = {};
 
     return {
-        write: function (data) {
-            return textWriter.write(JSON.stringify(data) + "\n");
+        add: function (domain, feature) {
+            if (domainToFeatures[domain] === undefined) {
+                domainToFeatures[domain] = {};
+            }
+
+            if (domainToFeatures[domain][feature] === undefined) {
+                domainToFeatures[domain][feature] = 1;
+            } else {
+                domainToFeatures[domain][feature] += 1;
+            }
+
+            return this;
         },
-        close: function () {
-            return textWriter.close();
+        getAll: function () {
+            return domainToFeatures;
         }
     };
 }());
 
 
-onPrefOpen = tab => {
+fileWriter = (function () {
+    var outputPath = passedArguments.output,
+        toStdout = false,
+        textWriter;
 
-    tab.on("ready", function (aTab) {
+    if (outputPath === undefined) {
+        // "Firefox opened without specifiying a path to write feature data to.  Should be called with something like `--static-args={output: '/tmp/out'}.";
+        toStdout = true;
+    } else {
+        textWriter = fileIO.open(outputPath, "w");
+        if (!textWriter.closed) {
+            throw "Unable to open file to write to at '" + outputPath + "'.";
+        }
+    }
 
-        var worker = tab.attach({
-            contentScriptFile: "./prefs/content-script.js",
-            contentScriptOptions: {
-                debug: debug,
-                features: featuresToCount
+    return {
+        write: function (data) {
+            if (toStdout) {
+                console.log(JSON.stringify(data) + "\n");
+            } else {
+                return textWriter.write(JSON.stringify(data) + "\n");
             }
-        });
-
-        worker.port.on("pref-page-request-features-update", function () {
-
-            var allFeatures = featuresModel.all(),
-                featureStats;
-
-            featureStats = Object.keys(allFeatures).map(function (aFeatureName) {
-
-                var featureRule = eval("[" + allFeatures[aFeatureName] + "]")[0];
-
-                return {
-                    feature: aFeatureName,
-                    type: featureRule.type,
-                    count: statsModel.numObservations(aFeatureName) || 0,
-                    domainCount: statsModel.numDomains(aFeatureName) || 0
-                };
-            });
-
-            worker.port.emit("pref-page-receive-features-update", featureStats);
-        });
-
-        worker.port.on("pref-page-request-delete-feature", function (featureName) {
-            var featureRuleWasDeleted = featuresModel.clearOne(featureName);
-            statsModel.clearOne(featureName);
-            worker.port.emit("pref-page-receive-delete-feature", [featureName, featureRuleWasDeleted]);
-        });
-
-        worker.port.on("pref-page-request-add-features", function (featuresText) {
-
-            var badRules = featuresText.split("\n").filter(function (aFeatureRule) {
-                var wasSuccessfullyAdded = featuresModel.add(aFeatureRule.trim());
-                return wasSuccessfullyAdded ? false : aFeatureRule;
-            });
-
-            worker.port.emit("pref-page-receive-add-features", badRules);
-        });
-    });
-};
+        },
+        close: function () {
+            if (!toStdout) {
+                return textWriter.close();
+            }
+        }
+    };
+}());
 
 
 pageMod.PageMod({
     include: "*",
-    exclude: "*/prefs/index.html",
     contentScriptOptions: {
-        debug: debug
+        debug: debug,
+        features: featuresToCount
     },
     contentScriptFile: [
         "./content/debug.js",
@@ -104,31 +87,30 @@ pageMod.PageMod({
     contentScriptWhen: "start",
     attachTo: ['top', 'frame'],
     onAttach: function (worker) {
-
-        worker.port.on("content-request-recorded-data", function (featureData) {
-            fileWriter.write(featureData);
-        });
-
         worker.port.on("content-request-record-feature-block", function (featureDetails) {
             var {featureName, domain} = featureDetails;
-            statsModel.addObservation(featureName, domain);
+            //statsModel.addObservation(featureName, domain);
+            currentProcessFeatures.add(domain, featureName);
         });
     }
 });
 
 
-buttons.ActionButton({
-    id: "feature-measurement",
-    label: "Feature Measurement Study",
-    icon: {
-        "16": "./icons/icon-16.png",
-        "32": "./icons/icon-32.png",
-        "64": "./icons/icon-64.png"
-    },
-    onClick: state => {
-        tabs.open({
-            url: "./prefs/index.html",
-            onOpen: onPrefOpen
-        });
-    }
+events.on("xpcom-will-shutdown", function (data) {
+    console.log("quitting");
+    fileWriter.write(currentProcessFeatures.getAll());
+    fileWriter.close();
 });
+
+
+// If we were passed a timeout at start in the --static-args JSON text,
+// then set the browser to shutdown programatically.
+if (true || passedArguments.time) {
+
+    timers.setTimeout(function () {
+        fileWriter.write(currentProcessFeatures.getAll());
+        fileWriter.close();
+        system.exit(0);
+    }, 60000);// passedArguments.time * 1000);
+}
+

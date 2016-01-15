@@ -44,34 +44,10 @@
 
         unsafeWindow.eval(`(function () {
 
-            var allPurposeProxy,
-                featureRefFromPath,
+            var featureRefFromPath,
                 instrumentMethod,
-                instrumentEventRegistration,
                 instrumentPropertySet,
                 featureTypeToFuncMap;
-
-            allPurposeProxy = new Proxy(function () {}, {
-                get: function (target, property, receiver) {
-                    if (property === "length") {
-                        return 0;
-                    }
-                    return allPurposeProxy;
-                },
-                set: function (target, property, value, receiver) {
-                    return allPurposeProxy;
-                },
-                apply: function (target, thisArg, argumentsList) {
-                    return allPurposeProxy;
-                },
-                enumerate: function (target) {
-                    return [][Symbol.iterator]();
-                },
-                ownKeys: function (target) {
-                    return [];
-                }
-            });
-
 
             /**
             * Takes a global DOM object and a path to look up on that object, and returns
@@ -138,7 +114,7 @@
                 [propertyRef, propertyLeafName, propertyParentRef] = propertyLookupResult;
                 propertyParentRef.watch(propertyLeafName, function (id, oldval, newval) {
                     UICGLOBAL.recordBlockedFeature(propertyPath);
-                    return oldval;
+                    return newval;
                 });
 
                 return true;
@@ -174,57 +150,16 @@
                 [featureRef, featureLeafName, parentRef] = methodLookupResult;
                 parentRef[featureLeafName] = function () {
                     UICGLOBAL.recordBlockedFeature(methodPath);
-                    return allPurposeProxy;
+                    return featureRef.apply(this, arguments);
                 };
 
                 return true;
             };
 
 
-            /**
-             * Instruments registering for an event registration so that whether
-             * an event registration is allowed is controlled by a given callback
-             * function.
-             *
-             * @param string eventName
-             *   The name of the event being registered.
-             *
-             * @return boolean
-             *   True if the given event feature was instrumented method, and false if
-             *   there was any error.
-             */
-            instrumentEventRegistration = (function () {
-
-                var origEventListener,
-                    eventsToBlock = {};
-
-                return function (eventName) {
-
-                    UICGLOBAL.debug(eventName + ": Instumenting event");
-
-                    // Check and see if we've already replace the original event listener.
-                    // If not, replace the original event listener with the new one now.
-                    if (origEventListener === undefined) {
-                        origEventListener = window.EventTarget.prototype.addEventListener;
-                        window.EventTarget.prototype.addEventListener = function () {
-                            if (eventsToBlock[eventName] === true) {
-                                UICGLOBAL.recordBlockedFeature(eventName);
-                                return;
-                            }
-                            return origEventListener.apply(this, arguments);
-                        };
-                    }
-
-                    eventsToBlock[eventName] = true;
-                    return true;
-                };
-            }());
-
-
             featureTypeToFuncMap = {
                 "method": instrumentMethod,
                 "promise": instrumentMethod,
-                "event": instrumentEventRegistration,
                 "property": instrumentPropertySet
             };
 

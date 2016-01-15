@@ -10,7 +10,9 @@
         };
     global.featuresLoaded = false;
 
-    self.options.features.forEach(aRule => parsedFeatures[aRule.type].push(aRule.feature));
+    self.options.features.forEach(function (aRule) {
+        parsedFeatures[aRule.type].push(aRule.feature);
+    });
     global.script.features = cloneInto(parsedFeatures, unsafeWindow);
     global.featuresLoaded = true;
     if (global.instrumentTheDom) {
