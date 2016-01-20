@@ -2,34 +2,45 @@
     "use strict";
 
     var global = window.UICGLOBAL,
-        recordBlockedFeature,
+        reportBlockedFeatures,
+        reportFoundHrefs,
         domHasBeenInstrumented = false;
 
-    /**
-     * Checks to see if a decision has already been made about about a given
-     * feature, locally, w/o calling back to the main plugin code.
-     *
-     * @param object featureRule
-     *   An object defining a property in the DOM that should be instrumented,
-     *   and what the return values should be.
-     *
-     * @return boolean
-     *   Returns a boolean description of whether the given feature has been
-     *   blocked.
-     */
-    recordBlockedFeature = function (featureName) {
+    global.script.secPerPage = self.options.secPerPage;
 
-        featureName = Array.isArray(featureName) ? featureName.join(".") : featureName;
-        global.debug(featureName + ": Trapped blocked feature");
-
-        self.port.emit("content-request-record-feature-block", {
-            featureName: featureName,
-            domain: unsafeWindow.location.host
+    reportBlockedFeatures = function (features) {
+        self.port.emit("content-request-record-blocked-features", {
+            features: features,
+            url: unsafeWindow.location.toString()
         });
-
-        return true;
     };
-    global.script.recordBlockedFeature = exportFunction(recordBlockedFeature, unsafeWindow, {
+    global.script.reportBlockedFeatures = exportFunction(reportBlockedFeatures, unsafeWindow, {
+        allowCrossOriginArguments: true
+    });
+
+
+    /**
+     * Reports a list of urls (relative or absolute) that are referenced
+     * from the current page to the extension
+     *
+     * @param array urls
+     *   An array of zero or more urls (as strings) describing pages referenced
+     *   from the current page.
+     */
+    reportFoundHrefs = function (urls) {
+
+        // First make sure all the URLs are unique before we report them
+        // to the extension.
+        var uniqueUrls = urls.reduce(function (prev, cur) {
+            prev[cur] = true;
+            return prev;
+        }, Object.create(null));
+
+        uniqueUrls = Object.keys(uniqueUrls);
+        global.debug("Found " + uniqueUrls.length + " urls referenced in a elements on this page");
+        self.port.emit("content-request-found-urls", uniqueUrls);
+    };
+    global.script.reportFoundHrefs = exportFunction(reportFoundHrefs, unsafeWindow, {
         allowCrossOriginArguments: true
     });
 
@@ -45,9 +56,26 @@
         unsafeWindow.eval(`(function () {
 
             var featureRefFromPath,
+                recordBlockedFeature,
+                recordedFeatures = {},
                 instrumentMethod,
                 instrumentPropertySet,
-                featureTypeToFuncMap;
+                featureTypeToFuncMap,
+                origQuerySelectorAll = window.document.querySelectorAll,
+                origSetTimeout = window.setTimeout;
+
+
+            recordBlockedFeature = function (featureName) {
+
+                featureName = Array.isArray(featureName) ? featureName.join(".") : featureName;
+
+                if (recordedFeatures[featureName] === undefined) {
+                    recordedFeatures[featureName] = 1;
+                } else {
+                    recordedFeatures[featureName] += 1;
+                }
+            };
+
 
             /**
             * Takes a global DOM object and a path to look up on that object, and returns
@@ -113,7 +141,7 @@
 
                 [propertyRef, propertyLeafName, propertyParentRef] = propertyLookupResult;
                 propertyParentRef.watch(propertyLeafName, function (id, oldval, newval) {
-                    UICGLOBAL.recordBlockedFeature(propertyPath);
+                    recordBlockedFeature(propertyPath);
                     return newval;
                 });
 
@@ -149,13 +177,12 @@
 
                 [featureRef, featureLeafName, parentRef] = methodLookupResult;
                 parentRef[featureLeafName] = function () {
-                    UICGLOBAL.recordBlockedFeature(methodPath);
+                    recordBlockedFeature(methodPath);
                     return featureRef.apply(this, arguments);
                 };
 
                 return true;
             };
-
 
             featureTypeToFuncMap = {
                 "method": instrumentMethod,
@@ -163,12 +190,28 @@
                 "property": instrumentPropertySet
             };
 
-
             Object.keys(UICGLOBAL.features).forEach(function (featureType) {
                 UICGLOBAL.features[featureType].forEach(function (featurePath) {
                     featureTypeToFuncMap[featureType](featurePath);
                 });
             });
+
+            // If we're a top level document (ie not an iframe), then
+            // we want to register to let the extension know when we're
+            // fully loaded so that we can open some of them programatically.
+            if (window !== window.top) {
+                return;
+            }
+
+            document.addEventListener("DOMContentLoaded", function (event) {
+                origSetTimeout(function () {
+                    var anchorTags = origQuerySelectorAll.call(document, "a[href]"),
+                        hrefs = Array.prototype.map.call(anchorTags, a => a.href);
+                    UICGLOBAL.reportBlockedFeatures(recordedFeatures);
+                    UICGLOBAL.reportFoundHrefs(hrefs);
+                }, UICGLOBAL.secPerPage * 1000);
+            });
+
         }())`);
         domHasBeenInstrumented = true;
     };
