@@ -1,13 +1,16 @@
 "use strict";
 
+
 var debug = false,
     timers = require("sdk/timers"),
     pageMod = require("sdk/page-mod"),
     tabs = require("sdk/tabs"),
     tree = require("lib/tree"),
     system = require("sdk/system"),
+    self = require("sdk/self"),
     {env} = require('sdk/system/environment'),
     fileIO = require("sdk/io/file"),
+    gremlinSource = self.data.load("content/gremlins.js"),
     urlLib = require("sdk/url"),
     urlPriorityLib = require("lib/urls"),
     events = require("sdk/system/events"),
@@ -15,6 +18,7 @@ var debug = false,
     featuresToCount = featuresRuleParser.parse("features.csv"),
     visitedUrls = new Set(),
     boundTabs = {},
+    readFileToString,
     origHost,
     openNewTab,
     tabTree,
@@ -22,8 +26,8 @@ var debug = false,
     args,
     onExit,
     currentProcessFeatures,
-    fileWriter;
-
+    fileWriter,
+    gremlinSource;
 
 /**
  * Parses and wraps  line arguments given to the extension.  Valid
@@ -149,7 +153,8 @@ pageMod.PageMod({
     contentScriptOptions: {
         debug: debug,
         features: featuresToCount,
-        secPerPage: args.secPerPage
+        secPerPage: args.secPerPage,
+        gremlinSource: gremlinSource
     },
     contentScriptFile: [
         "./content/debug.js",
@@ -205,17 +210,35 @@ pageMod.PageMod({
             return;
         }
 
-        worker.port.on("content-request-found-urls", function (uniqueUrls) {
-            urlPriorityLib
-                .prioritizeUrls(uniqueUrls, origHost)
-                .filter(aUrl => !visitedUrls.has(aUrl))
-                .slice(0, args.urlsPerPage)
-                .forEach(aUrl => openNewTab(worker.tab, aUrl));
+        worker.port.on("content-request-found-urls", function (foundUrls) {
+            var [activatedUrls, otherUrls] = foundUrls,
+                highPriorityUrls,
+                lowPriorityUrls;
+
+            highPriorityUrls = urlPriorityLib
+                .prioritizeUrls(activatedUrls, origHost)
+                .filter(aUrl => !visitedUrls.has(aUrl));
+
+            lowPriorityUrls = urlPriorityLib
+                .prioritizeUrls(otherUrls, origHost)
+                .filter(aUrl => !visitedUrls.has(aUrl));
+
+            highPriorityUrls.concat(lowPriorityUrls)
+                .reduce(function (countOpened, aUrl) {
+                    if (countOpened === args.urlsPerPage) {
+                        return countOpened;
+                    }
+                    if (visitedUrls.has(aUrl)) {
+                        return countOpened;
+                    };
+                    visitedUrls.add(aUrl);
+                    openNewTab(worker.tab, aUrl);
+                    countOpened += 1;
+                    return countOpened;
+                }, 0);
         });
     }
 });
 
 
-events.on("quit-application", function (event) {
-    onExit();
-}, true);
+events.on("quit-application", onExit, true);

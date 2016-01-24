@@ -3,7 +3,7 @@
 
     var global = window.UICGLOBAL,
         reportBlockedFeatures,
-        reportFoundHrefs,
+        reportFoundUrls,
         domHasBeenInstrumented = false;
 
     global.script.secPerPage = self.options.secPerPage;
@@ -23,24 +23,34 @@
      * Reports a list of urls (relative or absolute) that are referenced
      * from the current page to the extension
      *
-     * @param array urls
+     * @param array activatedUrls
+     *   An array of zero or more strings representing URLs that have been
+     *   clicked on or requested by the page.  The elements of the array
+     *   are sorted by number of times the page tried to request them
+     *   (from most to least)
+     * @param array allUrls
      *   An array of zero or more urls (as strings) describing pages referenced
      *   from the current page.
      */
-    reportFoundHrefs = function (urls) {
+    reportFoundUrls = function (activatedUrls, allUrls) {
 
         // First make sure all the URLs are unique before we report them
-        // to the extension.
-        var uniqueUrls = urls.reduce(function (prev, cur) {
+        // to the extension, and that we don't include URLs in the
+        // "non-activated" array that were already included in the
+        // `activatedUrls` array.
+        var nonActivatedUrls = allUrls.reduce(function (prev, cur) {
+            if (activatedUrls.indexOf(cur) !== -1) {
+                return prev;
+            }
             prev[cur] = true;
             return prev;
         }, Object.create(null));
 
-        uniqueUrls = Object.keys(uniqueUrls);
-        global.debug("Found " + uniqueUrls.length + " urls referenced in a elements on this page");
-        self.port.emit("content-request-found-urls", uniqueUrls);
+        nonActivatedUrls = Object.keys(nonActivatedUrls);
+        global.debug("Found " + nonActivatedUrls.length + " urls referenced in a elements on this page");
+        self.port.emit("content-request-found-urls", [activatedUrls, nonActivatedUrls]);
     };
-    global.script.reportFoundHrefs = exportFunction(reportFoundHrefs, unsafeWindow, {
+    global.script.reportFoundUrls = exportFunction(reportFoundUrls, unsafeWindow, {
         allowCrossOriginArguments: true
     });
 
@@ -53,6 +63,8 @@
 
         global.debug("Beginning to instrumenting the DOM");
 
+        unsafeWindow.eval(self.options.gremlinSource);
+
         unsafeWindow.eval(`(function () {
 
             var featureRefFromPath,
@@ -62,13 +74,118 @@
                 instrumentPropertySet,
                 featureTypeToFuncMap,
                 origQuerySelectorAll = window.document.querySelectorAll,
-                origSetTimeout = window.setTimeout;
+                origSetTimeout = window.setTimeout,
+                origAddEventListener = window.Node.prototype.addEventListener,
+                origUrlToString = window.URL.prototype.toString,
+                currentLocationString = window.location.toString(),
+                isUrlOnCurrentPage,
+                requestedUrls,
+                parseStringToUrl,
+                sharedAnchorEventListiner,
+                onLocationChange,
+                documentObserver;
+
+
+            parseStringToUrl = function (aUrlString) {
+                return new window.URL(aUrlString, currentLocationString);
+            };
+
+
+            isUrlOnCurrentPage = (function () {
+                var curPageUrl = parseStringToUrl(currentLocationString);
+                return function (aUrlString) {
+                    var newUrl = parseStringToUrl(aUrlString),
+                        urlsAreSimilar = (newUrl.host === curPageUrl.host &&
+                            newUrl.pathname === curPageUrl.pathname &&
+                            newUrl.search === curPageUrl.search);
+                    return urlsAreSimilar;
+                };
+            }());
+
+
+            requestedUrls = (function () {
+
+                var urls = {};
+
+                return {
+                    add: function (aUrl) {
+                        var newUrl = parseStringToUrl(aUrl);
+                        if (urls[newUrl] === undefined) {
+                            urls[newUrl] = 1;
+                        } else {
+                            urls[newUrl] += 1;
+                        }
+                        return this;
+                    },
+                    all: function () {
+                        var flattenedUrls = Object.keys(urls).map(aUrl => [aUrl, urls[aUrl]]);
+                        flattenedUrls.sort((a, b) => a[1] - b[1]);
+                        flattenedUrls.reverse();
+                        return flattenedUrls.map(entry => entry[0]);
+                    }
+                };
+            }());
+
+
+            // We want to be able to trap location changes.  We catch
+            // two ways that this can be done right now.  Clicking on
+            // anchors and changing window.location.  We prevent the
+            // anchor clicking case by installing a click handler on
+            // all anchors that can prevent the click event.
+            // We handle the {window|document}.location cases using
+            // Object.watch
+            sharedAnchorEventListiner = function (event) {
+                var newUrl = event.currentTarget.href.trim();
+                // If we have some anchor value that is often used for
+                // indicating we shouldn't change pages, then we don't
+                // need to intecept the call or anything similar
+                if (!isUrlOnCurrentPage(newUrl)) {
+                    UICGLOBAL.debug("Detected click on anchor with href: " + newUrl);
+                    requestedUrls.add(newUrl);
+                    event.preventDefault();
+                }
+            };
+            documentObserver = new MutationObserver(function (mutations) {
+                mutations.forEach(function (aMutation) {
+                    Array.prototype.forEach.call(aMutation.addedNodes, function (aNewNode) {
+                        if (aNewNode.nodeName !== "a") {
+                            return;
+                        }
+                        origAddEventListener.call(aNewNode, "click", sharedAnchorEventListiner, false);
+                    });
+                });
+            });
+            documentObserver.observe(window.document, {childList: true, subtree: true});
+
+
+            onLocationChange = function (id, oldVal, newVal) {
+                if (isUrlOnCurrentPage(newVal)) {
+                    return newVal;
+                }
+                UICGLOBAL.debug("Detected location change to: " + newVal);
+                requestedUrls.add(newVal);
+                return newVal;
+            };
+            document.watch("location", function () {
+                recordBlockedFeature(["document", "location"]);
+                onLocationChange.apply(this, arguments);
+            });
+            window.watch("location", function () {
+                recordBlockedFeature(["window", "location"]);
+                onLocationChange.apply(this, arguments);
+            });
+            document.location.watch("href", function () {
+                recordBlockedFeature(["document", "location", "href"]);
+                onLocationChange.apply(this, arguments);
+            });
+            window.location.watch("href", function () {
+                recordBlockedFeature(["window", "location", "href"]);
+                onLocationChange.apply(this, arguments);
+            });
 
 
             recordBlockedFeature = function (featureName) {
-
                 featureName = Array.isArray(featureName) ? featureName.join(".") : featureName;
-
                 if (recordedFeatures[featureName] === undefined) {
                     recordedFeatures[featureName] = 1;
                 } else {
@@ -131,6 +248,10 @@
                     propertyRef,
                     propertyLeafName,
                     propertyParentRef;
+
+                if (["document.location", "window.location"].indexOf(propertyName) !== -1) {
+                    return;
+                }
 
                 UICGLOBAL.debug(propertyName + ": Debugging property setting feature");
 
@@ -204,14 +325,22 @@
             }
 
             document.addEventListener("DOMContentLoaded", function (event) {
-                origSetTimeout(function () {
+                Array.prototype.forEach.call(origQuerySelectorAll.call(document, "a"), function (anAnchor) {
+                    origAddEventListener.call(anAnchor, "click", sharedAnchorEventListiner, false);
+                });
+                origSetTimeout.call(window, function () {
                     var anchorTags = origQuerySelectorAll.call(document, "a[href]"),
                         hrefs = Array.prototype.map.call(anchorTags, a => a.href);
                     UICGLOBAL.reportBlockedFeatures(recordedFeatures);
-                    UICGLOBAL.reportFoundHrefs(hrefs);
+                    UICGLOBAL.reportFoundUrls(requestedUrls.all(), hrefs);
                 }, UICGLOBAL.secPerPage * 1000);
-            });
-
+                gremlins.createHorde()
+                  .allGremlins()
+                  .gremlin(function() {
+                    window.$ = function() {};
+                  })
+                  .unleash();
+              });
         }())`);
         domHasBeenInstrumented = true;
     };
