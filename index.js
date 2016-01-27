@@ -46,7 +46,7 @@ args = {
     depth: env.FF_API_DEPTH || 2,
     urlsPerPage: env.FF_API_URL_PER_PAGE || 3,
     secPerPage: env.FF_API_SEC_PER_PAGE || 10,
-    merge: !!env.FF_API_MERGE
+    merge: (env.FF_API_MERGE === "1")
 };
 
 
@@ -114,7 +114,7 @@ currentProcessFeatures = (function () {
 
 
 onExit = function () {
-    var featureReport = args.merge
+    var featureReport = args.merge === true
         ? currentProcessFeatures.merged()
         : currentProcessFeatures.getAll();
     console.log(JSON.stringify(featureReport) + "\n");
