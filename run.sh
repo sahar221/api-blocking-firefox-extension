@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Commandline options for running the instrumented version of the browser
-#  -d How many sites deep we should search (ie how many levels do we recurse).
+#  -r How many sites deep we should search (ie how many levels do we recurse).
 #     Defaults to 2
 #  -n What is the maximum number of URLs to open per page.  Defaults to 5
 #  -s How many seconds to wait on each page to let the page execute
@@ -17,12 +17,17 @@ FF_API_DEPTH=2;
 FF_API_URL_PER_PAGE=5;
 FF_API_SEC_PER_PAGE=30;
 FF_API_MERGE=0;
+FF_API_RELATED_DOMAINS="";
 FF_PATH="";
 URL="";
 
-while getopts :d:n:s:m:b:u: opt; do
+while getopts r:d:n:s:m:b:u: opt; do
   case $opt in
     d)
+      FF_API_RELATED_DOMAINS=$OPTARG;
+      ;;
+
+    r)
       FF_API_DEPTH=$OPTARG;
       ;;
 
@@ -58,4 +63,4 @@ if [[ -n $FF_PATH ]]; then
   FF_PATH="-b $FF_PATH";
 fi;
 
-FF_API_MERGE=$FF_API_MERGE FF_API_DEPTH=$FF_API_DEPTH FF_API_URL_PER_PAGE=$FF_API_URL_PER_PAGE FF_API_SEC_PER_PAGE=$FF_API_SEC_PER_PAGE jpm run --binary-args "$URL" $FF_PATH | grep "console.log: api-blocker: " | sed 's/console\.log: api-blocker: //g';
+FF_API_RELATED_DOMAINS=$FF_API_RELATED_DOMAINS FF_API_MERGE=$FF_API_MERGE FF_API_DEPTH=$FF_API_DEPTH FF_API_URL_PER_PAGE=$FF_API_URL_PER_PAGE FF_API_SEC_PER_PAGE=$FF_API_SEC_PER_PAGE jpm run --binary-args "$URL" $FF_PATH | grep "console.log: api-blocker: " | sed 's/console\.log: api-blocker: //g';
