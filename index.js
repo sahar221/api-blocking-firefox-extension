@@ -17,24 +17,20 @@ var debug = false,
     featuresRuleParser = require("lib/featureParser"),
     featuresToCount = featuresRuleParser.parse("features.csv"),
     visitedUrls = new Set(),
-    boundTabs = {},
-    readFileToString,
+    makePageModObj,
     origHost,
     openNewTab,
     tabTree,
-    boundTabs = {},
     args,
     onExit,
     currentProcessFeatures,
-    fileWriter,
-    gremlinSource;
+    debugMessage;
+
 
 /**
  * Parses and wraps  line arguments given to the extension.  Valid
  * env options are the following:
  *
- *   - FF_API_OUT (string): The path to write the API usage report to.  If this
- *                          is not provided, output will be written to STDOUT
  *   - FF_API_DEPTH (int): How many times, recursively, to open links on a
  *                         website.  Defaults to 2.
  *   - FF_API_URL_PER_PAGE (int): The maximum number of URLs on the page to
@@ -47,12 +43,17 @@ var debug = false,
  *                         instead of broken out by source URL.
  */
 args = {
-    toStdOut: !!env.FF_API_OUT,
-    outputPath: env.FF_API_OUT,
     depth: env.FF_API_DEPTH || 2,
     urlsPerPage: env.FF_API_URL_PER_PAGE || 3,
     secPerPage: env.FF_API_SEC_PER_PAGE || 10,
     merge: !!env.FF_API_MERGE
+};
+
+
+debugMessage = function (msg) {
+    if (debug === true) {
+        console.log(msg);
+    }
 };
 
 
@@ -112,133 +113,120 @@ currentProcessFeatures = (function () {
 }());
 
 
-fileWriter = (function () {
-    var textWriter;
-
-    if (args.outputPath) {
-        textWriter = fileIO.open(args.outputPath, "w");
-        if (!textWriter.closed) {
-            throw "Unable to open file to write to at '" + args.outputPath + "'.";
-        }
-    }
-
-    return {
-        write: function (data) {
-            if (!textWriter) {
-                console.log(JSON.stringify(data) + "\n");
-            } else {
-                return textWriter.write(JSON.stringify(data) + "\n");
-            }
-        },
-        close: function () {
-            if (textWriter) {
-                return textWriter.close();
-            }
-        }
-    };
-}());
-
-
 onExit = function () {
     var featureReport = args.merge
         ? currentProcessFeatures.merged()
         : currentProcessFeatures.getAll();
-    fileWriter.write(featureReport);
-    fileWriter.close();
+    console.log(JSON.stringify(featureReport) + "\n");
 };
 
 
-pageMod.PageMod({
-    include: "*",
-    contentScriptOptions: {
-        debug: debug,
-        features: featuresToCount,
-        secPerPage: args.secPerPage,
-        gremlinSource: gremlinSource
-    },
-    contentScriptFile: [
-        "./content/debug.js",
-        "./content/features.js",
-        "./content/instrument.js"
-    ],
-    contentScriptWhen: "start",
-    attachTo: ['top', 'frame'],
-    onAttach: function (worker) {
+makePageModObj = function (isForIFrame) {
 
-        var currentTabId = worker.tab.id,
-            treeDepth;
+    return {
+        include: "*",
+        contentScriptOptions: {
+            debug: debug,
+            features: featuresToCount,
+            secPerPage: args.secPerPage,
+            gremlinSource: gremlinSource,
+            isIFrame: isForIFrame
+        },
+        contentScriptFile: [
+            "./content/debug.js",
+            "./content/features.js",
+            "./content/instrument.js"
+        ],
+        contentScriptWhen: "start",
+        attachTo: ["existing", isForIFrame ? "frame" : 'top'],
+        onAttach: function (worker) {
 
-        // If there isn't an item in the node tree for this node, then
-        // we assume this is the first page load (ie the page being tested)
-        // and we make it the root in the node tree we're tracking.
-        if (tabTree === undefined) {
-            visitedUrls.add(worker.tab.url);
-            tabTree = tree.createTree(currentTabId);
-            origHost = urlLib.URL(worker.tab.url).host;
-        }
+            var currentTabId = worker.tab.id,
+                treeDepth;
 
-        worker.port.on("content-request-record-blocked-features", function (data) {
-            var {features, url} = data;
-            currentProcessFeatures.add(url, features);
-        });
+            debugMessage(`Enterting: ${isForIFrame}, ${worker.tab.url}`);
 
+            // If there isn't an item in the node tree for this node, then
+            // we assume this is the first page load (ie the page being tested)
+            // and we make it the root in the node tree we're tracking.
+            if (tabTree === undefined) {
+                visitedUrls.add(worker.tab.url);
+                tabTree = tree.createTree(currentTabId);
+                origHost = (new urlLib.URL(worker.tab.url)).host;
+            }
 
-        // Similarly, if we're already at the max depth we care about in
-        // the tab tree, we dont need to worry about URLs returned
-        // from the child page at all.  This check prevents the recursion
-        // from increasing too far by making the client page's "open
-        // child urls" call a NOOP
-        if (boundTabs[currentTabId] !== undefined) {
-            return;
-        }
-        boundTabs[currentTabId] = true;
+            worker.port.on("content-request-record-blocked-features", function (data) {
+                var {features, url} = data;
+                debugMessage("content-request-record-blocked-features: " + worker.tab.url);
+                currentProcessFeatures.add(url, features);
+            });
 
 
-        timers.setTimeout(function () {
-            // And now that we've opened up all the child links needed
-            // on this page, we can close the current page.  And if this
-            // is the last tab, also close the tab.
-            worker.tab.close(function () {
+            if (isForIFrame) {
+                return;
+            }
+
+
+            timers.setTimeout(function () {
+                // And now that we've opened up all the child links needed
+                // on this page, we can close the current page.  And if this
+                // is the last tab, also close the tab.
+                if (worker.tab && worker.tab.close) {
+                  worker.tab.close(function () {
+                      if (tabs.length === 0) {
+                          system.exit(0);
+                      }
+                  });
+                  return;
+                }
+
                 if (tabs.length === 0) {
                     system.exit(0);
                 }
+            }, args.secPerPage * 2000);
+
+            treeDepth = tabTree.depth(currentTabId);
+            if (treeDepth >= args.depth) {
+                return;
+            }
+
+            worker.port.on("content-request-found-urls", function (foundUrls) {
+
+                debugMessage("content-request-found-urls: " + worker.tab.url);
+
+                var [activatedUrls, otherUrls] = foundUrls,
+                    highPriorityUrls,
+                    lowPriorityUrls;
+
+                highPriorityUrls = urlPriorityLib
+                    .prioritizeUrls(activatedUrls, origHost)
+                    .filter(aUrl => !visitedUrls.has(aUrl));
+
+                lowPriorityUrls = urlPriorityLib
+                    .prioritizeUrls(otherUrls, origHost)
+                    .filter(aUrl => !visitedUrls.has(aUrl));
+
+                highPriorityUrls.concat(lowPriorityUrls)
+                    .reduce(function (countOpened, aUrl) {
+                        if (countOpened >= args.urlsPerPage) {
+                            return countOpened;
+                        }
+                        if (visitedUrls.has(aUrl)) {
+                            return countOpened;
+                        };
+                        visitedUrls.add(aUrl);
+                        openNewTab(worker.tab, aUrl);
+                        countOpened += 1;
+                        return countOpened;
+                    }, 0);
             });
-        }, args.secPerPage * 1500);
-
-        treeDepth = tabTree.depth(currentTabId);
-        if (treeDepth >= args.depth) {
-            return;
         }
+    };
+};
 
-        worker.port.on("content-request-found-urls", function (foundUrls) {
-            var [activatedUrls, otherUrls] = foundUrls,
-                highPriorityUrls,
-                lowPriorityUrls;
 
-            highPriorityUrls = urlPriorityLib
-                .prioritizeUrls(activatedUrls, origHost)
-                .filter(aUrl => !visitedUrls.has(aUrl));
-
-            lowPriorityUrls = urlPriorityLib
-                .prioritizeUrls(otherUrls, origHost)
-                .filter(aUrl => !visitedUrls.has(aUrl));
-
-            highPriorityUrls.concat(lowPriorityUrls)
-                .reduce(function (countOpened, aUrl) {
-                    if (countOpened === args.urlsPerPage) {
-                        return countOpened;
-                    }
-                    if (visitedUrls.has(aUrl)) {
-                        return countOpened;
-                    };
-                    visitedUrls.add(aUrl);
-                    openNewTab(worker.tab, aUrl);
-                    countOpened += 1;
-                    return countOpened;
-                }, 0);
-        });
-    }
-});
+pageMod.PageMod(makePageModObj(true));
+pageMod.PageMod(makePageModObj(false));
 
 
 events.on("quit-application", onExit, true);

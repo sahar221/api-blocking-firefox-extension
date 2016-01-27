@@ -14,10 +14,6 @@
         parsedFeatures[aRule.type].push(aRule.feature);
     });
     global.script.features = cloneInto(parsedFeatures, unsafeWindow);
-    global.featuresLoaded = true;
-    if (global.instrumentTheDom) {
-        global.instrumentTheDom();
-    }
 
     self.port.on("content-receive-should-reload", () => {
         unsafeWindow.location.reload();
