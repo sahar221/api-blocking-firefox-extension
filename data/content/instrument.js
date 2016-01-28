@@ -73,7 +73,30 @@
             parseStringToUrl,
             sharedAnchorEventListiner,
             onLocationChange,
-            documentObserver;
+            documentObserver,
+            allPurposeProxy;
+
+
+        allPurposeProxy = new Proxy(function () {}, {
+            get: function (target, property, receiver) {
+                if (property === "length") {
+                    return 0;
+                }
+                return allPurposeProxy;
+            },
+            set: function (target, property, value, receiver) {
+                return allPurposeProxy;
+            },
+            apply: function (target, thisArg, argumentsList) {
+                return allPurposeProxy;
+            },
+            enumerate: function (target) {
+                return [][Symbol.iterator]();
+            },
+            ownKeys: function (target) {
+                return [];
+            }
+        });
 
 
         parseStringToUrl = function (aUrlString) {
@@ -173,6 +196,17 @@
             recordBlockedFeature(["window", "location", "href"]);
             onLocationChange.apply(this, arguments);
         });
+
+
+        window.open = function (newUrl) {
+            recordBlockedFeature(["window", "open"]);
+            if (isUrlOnCurrentPage(newUrl)) {
+                return allPurposeProxy;
+            }
+            UICGLOBAL.debug("Detected window.open call to: " + newUrl);
+            requestedUrls.add(newUrl);
+            return allPurposeProxy;
+        };
 
 
         recordBlockedFeature = function (featureName) {
