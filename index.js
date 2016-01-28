@@ -49,7 +49,7 @@ args = {
     urlsPerPage: env.FF_API_URL_PER_PAGE || 3,
     secPerPage: env.FF_API_SEC_PER_PAGE || 10,
     merge: (env.FF_API_MERGE === "1"),
-    domains: (!!env.FF_API_RELATED_DOMAINS) ? [] : env.FF_API_RELATED_DOMAINS.split(",")
+    domains: (!env.FF_API_RELATED_DOMAINS) ? [] : env.FF_API_RELATED_DOMAINS.split(",")
 };
 
 allowedDomains = allowedDomains.concat(args.domains);
