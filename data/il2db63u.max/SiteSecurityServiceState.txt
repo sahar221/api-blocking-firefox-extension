@@ -1,0 +1,5 @@
+notification.adblockplus.org:HSTS	0	16828	1485545583191,1,0
+services.addons.mozilla.org:HSTS	0	16828	1485545536889,1,0
+addons.mozilla.org:HSTS	0	16828	1485545536672,1,0
+easylist-downloads.adblockplus.org:HSTS	0	16828	1485545530368,1,0
+addons.cdn.mozilla.net:HSTS	0	16828	1485545515872,1,0

@@ -274,7 +274,7 @@
                 propertyLeafName,
                 propertyParentRef;
 
-            if (["document.location", "window.location"].indexOf(propertyName) !== -1) {
+            if (["document.location", "window.location", "window.open"].indexOf(propertyName) !== -1) {
                 return;
             }
 

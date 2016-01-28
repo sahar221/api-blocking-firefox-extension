@@ -12,6 +12,9 @@
 #  -b Path to the firefox binary to run.  Otherwise, defaults to
 #     whatever is in the system path.\
 #  -u The root URL to query
+#  -e Whether to run the tests with extensions / addons enabled.  By default
+#     the tests are run with no extensions.  Passing "-e" will enable
+#     adblockplus and ghostery
 
 FF_API_DEPTH=2;
 FF_API_URL_PER_PAGE=5;
@@ -19,10 +22,17 @@ FF_API_SEC_PER_PAGE=30;
 FF_API_MERGE=0;
 FF_API_RELATED_DOMAINS="";
 FF_PATH="";
+FF_PROFILE="";
 URL="";
 
-while getopts r:d:n:s:m:b:u: opt; do
+SCRIPT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd );
+
+while getopts r:n:s:b:u:d:me opt; do
   case $opt in
+    p)
+      FF_PROFILE="-p $SCRIPT_DIR/data/il2db63u.max ";
+      ;;
+
     d)
       FF_API_RELATED_DOMAINS=$OPTARG;
       ;;
@@ -63,4 +73,4 @@ if [[ -n $FF_PATH ]]; then
   FF_PATH="-b $FF_PATH";
 fi;
 
-FF_API_RELATED_DOMAINS=$FF_API_RELATED_DOMAINS FF_API_MERGE=$FF_API_MERGE FF_API_DEPTH=$FF_API_DEPTH FF_API_URL_PER_PAGE=$FF_API_URL_PER_PAGE FF_API_SEC_PER_PAGE=$FF_API_SEC_PER_PAGE jpm run --binary-args "$URL" $FF_PATH | grep "console.log: api-blocker: " | sed 's/console\.log: api-blocker: //g';
+FF_API_RELATED_DOMAINS=$FF_API_RELATED_DOMAINS FF_API_MERGE=$FF_API_MERGE FF_API_DEPTH=$FF_API_DEPTH FF_API_URL_PER_PAGE=$FF_API_URL_PER_PAGE FF_API_SEC_PER_PAGE=$FF_API_SEC_PER_PAGE jpm run --binary-args "$URL" $FF_PATH $FF_PROFILE | grep "console.log: api-blocker: " | sed 's/console\.log: api-blocker: //g';
