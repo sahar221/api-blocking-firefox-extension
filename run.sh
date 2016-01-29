@@ -16,21 +16,19 @@
 #     the tests are run with no extensions.  Passing "-e" will enable
 #     adblockplus and ghostery
 
+SCRIPT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd );
 FF_API_DEPTH=2;
 FF_API_URL_PER_PAGE=5;
 FF_API_SEC_PER_PAGE=30;
 FF_API_MERGE=0;
 FF_API_RELATED_DOMAINS="";
 FF_PATH="";
-FF_PROFILE="";
-URL="";
-
-SCRIPT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd );
+TEST_PROFILE="vy96i6we.Control";
 
 while getopts r:n:s:b:u:d:me opt; do
   case $opt in
-    p)
-      FF_PROFILE="-p $SCRIPT_DIR/data/il2db63u.max ";
+    e)
+      TEST_PROFILE="m2e8hrq8.Test";
       ;;
 
     d)
@@ -58,19 +56,30 @@ while getopts r:n:s:b:u:d:me opt; do
       ;;
 
     u)
-      URL=$OPTARG;
+      FF_API_URL=$OPTARG;
       ;;
   esac;
 done;
 
-if [[ -z $URL ]]; then
+if [[ -z $FF_API_URL ]]; then
   echo "Error: No URL provided to query."
   exit 1;
 fi;
 
 
-if [[ -n $FF_PATH ]]; then
-  FF_PATH="-b $FF_PATH";
+if [[ -z $FF_PATH ]]; then
+  echo "Error: No Firefox binary path given.";
+  exit 1;
 fi;
 
-FF_API_RELATED_DOMAINS=$FF_API_RELATED_DOMAINS FF_API_MERGE=$FF_API_MERGE FF_API_DEPTH=$FF_API_DEPTH FF_API_URL_PER_PAGE=$FF_API_URL_PER_PAGE FF_API_SEC_PER_PAGE=$FF_API_SEC_PER_PAGE jpm run --binary-args "$URL" $FF_PATH $FF_PROFILE | grep "console.log: api-blocker: " | sed 's/console\.log: api-blocker: //g';
+
+CUR_PROFILE="~/.mozilla/firefox/$TEST_PROFILE";
+if [[ -d $CUR_PROFILE ]]; then
+	rm -Rf $CUR_PROFILE;
+fi;
+
+cp -r $SCRIPT_DIR/data/$TEST_PROFILE /tmp/$TEST_PROFILE;
+
+FF_API_URL=$FF_API_URL FF_API_RELATED_DOMAINS=$FF_API_RELATED_DOMAINS FF_API_MERGE=$FF_API_MERGE FF_API_DEPTH=$FF_API_DEPTH FF_API_URL_PER_PAGE=$FF_API_URL_PER_PAGE FF_API_SEC_PER_PAGE=$FF_API_SEC_PER_PAGE $FF_PATH --profile /tmp/$TEST_PROFILE;
+
+rm -Rf /tmp/$TEST_PROFILE;

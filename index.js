@@ -31,6 +31,7 @@ var debug = false,
  * Parses and wraps  line arguments given to the extension.  Valid
  * env options are the following:
  *
+ *   - FF_API_URL (string): The initial URL to load and test against.
  *   - FF_API_DEPTH (int): How many times, recursively, to open links on a
  *                         website.  Defaults to 2.
  *   - FF_API_URL_PER_PAGE (int): The maximum number of URLs on the page to
@@ -45,6 +46,7 @@ var debug = false,
  *                              we accept clicks to.
  */
 args = {
+    url: env.FF_API_URL,
     depth: env.FF_API_DEPTH || 2,
     urlsPerPage: env.FF_API_URL_PER_PAGE || 3,
     secPerPage: env.FF_API_SEC_PER_PAGE || 10,
@@ -122,7 +124,7 @@ onExit = function () {
     var featureReport = args.merge === true
         ? currentProcessFeatures.merged()
         : currentProcessFeatures.getAll();
-    console.log(JSON.stringify(featureReport) + "\n");
+    dump("FF-API-EXTENSION: " + JSON.stringify(featureReport) + "\n");
 };
 
 
@@ -230,8 +232,15 @@ makePageModObj = function (isForIFrame) {
 };
 
 
-pageMod.PageMod(makePageModObj(true));
-pageMod.PageMod(makePageModObj(false));
+if (args.url) {
+    pageMod.PageMod(makePageModObj(true));
+    pageMod.PageMod(makePageModObj(false));
+    
+    events.on("quit-application", onExit, true);
+	timers.setTimeout(function () {
+        tabs.activeTab.url = args.url;
+	}, 5000);
+} else {
+    dump("Not binding to page, no root URL provided in FF_API_URL enviroment argument");
+}
 
-
-events.on("quit-application", onExit, true);
