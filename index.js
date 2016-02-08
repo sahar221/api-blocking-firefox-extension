@@ -44,6 +44,9 @@ var debug = false,
  *                         instead of broken out by source URL.
  *   - FF_API_DOMAINS (string): A comma separated list of domains that
  *                              we accept clicks to.
+ *   - FF_API_MANUAL (int): If set to 1, then no page will be automatically
+ *                          opened, and no links will be automatically followed
+ *                          when running the extension.
  */
 args = {
     url: env.FF_API_URL,
@@ -51,7 +54,8 @@ args = {
     urlsPerPage: env.FF_API_URL_PER_PAGE || 3,
     secPerPage: env.FF_API_SEC_PER_PAGE || 10,
     merge: (env.FF_API_MERGE === "1"),
-    domains: (!env.FF_API_RELATED_DOMAINS) ? [] : env.FF_API_RELATED_DOMAINS.split(",")
+    domains: (!env.FF_API_RELATED_DOMAINS) ? [] : env.FF_API_RELATED_DOMAINS.split(","),
+    manual: (env.FF_API_MANUAL === "1")
 };
 
 allowedDomains = allowedDomains.concat(args.domains);
@@ -68,6 +72,10 @@ openNewTab = function (parentTab, aUrl) {
 
     var nodeInTabTree = tabTree.node(parentTab.id),
         urlToOpen = new urlLib.URL(aUrl, parentTab.url);
+
+    if (args.manual) {
+        return;
+    }
 
     if (!nodeInTabTree) {
         throw "Unable to find entry for tab " + parentTab.id + " in the node tree";
@@ -169,10 +177,9 @@ makePageModObj = function (isForIFrame) {
             });
 
 
-            if (isForIFrame) {
+            if (isForIFrame || args.manual) {
                 return;
             }
-
 
             timers.setTimeout(function () {
                 // And now that we've opened up all the child links needed
@@ -237,9 +244,11 @@ if (args.url) {
     pageMod.PageMod(makePageModObj(false));
     
     events.on("quit-application", onExit, true);
-	timers.setTimeout(function () {
-        tabs.activeTab.url = args.url;
-	}, 5000);
+    if (!args.manual) {
+        timers.setTimeout(function () {
+              tabs.activeTab.url = args.url;
+        }, 5000);
+    }
 } else {
     dump("Not binding to page, no root URL provided in FF_API_URL enviroment argument");
 }
