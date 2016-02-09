@@ -7,6 +7,7 @@
         isForIFrame = !!self.options.isForIFrame;
 
     global.script.secPerPage = self.options.secPerPage;
+    global.script.manualMode = self.options.manual;
 
     reportBlockedFeatures = function (features) {
         self.port.emit("content-request-record-blocked-features", {
@@ -141,74 +142,75 @@
             };
         }());
 
-
-        // We want to be able to trap location changes.  We catch
-        // two ways that this can be done right now.  Clicking on
-        // anchors and changing window.location.  We prevent the
-        // anchor clicking case by installing a click handler on
-        // all anchors that can prevent the click event.
-        // We handle the {window|document}.location cases using
-        // Object.watch
-        sharedAnchorEventListiner = function (event) {
-            var newUrl = event.currentTarget.href.trim();
-            // If we have some anchor value that is often used for
-            // indicating we shouldn't change pages, then we don't
-            // need to intecept the call or anything similar
-            if (!isUrlOnCurrentPage(newUrl)) {
-                UICGLOBAL.debug("Detected click on anchor with href: " + newUrl);
-                requestedUrls.add(newUrl);
-                event.currentTarget.href = "";
-                event.preventDefault();
-            }
-        };
-        documentObserver = new MutationObserver(function (mutations) {
-            mutations.forEach(function (aMutation) {
-                Array.prototype.forEach.call(aMutation.addedNodes, function (aNewNode) {
-                    if (aNewNode.nodeName !== "a") {
-                        return;
-                    }
-                    origAddEventListener.call(aNewNode, "click", sharedAnchorEventListiner, false);
+        if (UICGLOBAL.manualMode !== true) {
+            // We want to be able to trap location changes.  We catch
+            // two ways that this can be done right now.  Clicking on
+            // anchors and changing window.location.  We prevent the
+            // anchor clicking case by installing a click handler on
+            // all anchors that can prevent the click event.
+            // We handle the {window|document}.location cases using
+            // Object.watch
+            sharedAnchorEventListiner = function (event) {
+                var newUrl = event.currentTarget.href.trim();
+                // If we have some anchor value that is often used for
+                // indicating we shouldn't change pages, then we don't
+                // need to intecept the call or anything similar
+                if (!isUrlOnCurrentPage(newUrl)) {
+                    UICGLOBAL.debug("Detected click on anchor with href: " + newUrl);
+                    requestedUrls.add(newUrl);
+                    event.currentTarget.href = "";
+                    event.preventDefault();
+                }
+            };
+            documentObserver = new MutationObserver(function (mutations) {
+                mutations.forEach(function (aMutation) {
+                    Array.prototype.forEach.call(aMutation.addedNodes, function (aNewNode) {
+                        if (aNewNode.nodeName !== "a") {
+                            return;
+                        }
+                        origAddEventListener.call(aNewNode, "click", sharedAnchorEventListiner, false);
+                    });
                 });
             });
-        });
-        documentObserver.observe(window.document, {childList: true, subtree: true});
+            documentObserver.observe(window.document, {childList: true, subtree: true});
 
 
-        onLocationChange = function (id, oldVal, newVal) {
-            if (isUrlOnCurrentPage(newVal)) {
+            onLocationChange = function (id, oldVal, newVal) {
+                if (isUrlOnCurrentPage(newVal)) {
+                    return newVal;
+                }
+                UICGLOBAL.debug("Detected location change to: " + newVal);
+                requestedUrls.add(newVal);
                 return newVal;
-            }
-            UICGLOBAL.debug("Detected location change to: " + newVal);
-            requestedUrls.add(newVal);
-            return newVal;
-        };
-        document.watch("location", function () {
-            recordBlockedFeature(["document", "location"]);
-            onLocationChange.apply(this, arguments);
-        });
-        window.watch("location", function () {
-            recordBlockedFeature(["window", "location"]);
-            onLocationChange.apply(this, arguments);
-        });
-        document.location.watch("href", function () {
-            recordBlockedFeature(["document", "location", "href"]);
-            onLocationChange.apply(this, arguments);
-        });
-        window.location.watch("href", function () {
-            recordBlockedFeature(["window", "location", "href"]);
-            onLocationChange.apply(this, arguments);
-        });
+            };
+            document.watch("location", function () {
+                recordBlockedFeature(["document", "location"]);
+                onLocationChange.apply(this, arguments);
+            });
+            window.watch("location", function () {
+                recordBlockedFeature(["window", "location"]);
+                onLocationChange.apply(this, arguments);
+            });
+            document.location.watch("href", function () {
+                recordBlockedFeature(["document", "location", "href"]);
+                onLocationChange.apply(this, arguments);
+            });
+            window.location.watch("href", function () {
+                recordBlockedFeature(["window", "location", "href"]);
+                onLocationChange.apply(this, arguments);
+            });
 
 
-        window.open = function (newUrl) {
-            recordBlockedFeature(["window", "open"]);
-            if (isUrlOnCurrentPage(newUrl)) {
+            window.open = function (newUrl) {
+                recordBlockedFeature(["window", "open"]);
+                if (isUrlOnCurrentPage(newUrl)) {
+                    return allPurposeProxy;
+                }
+                UICGLOBAL.debug("Detected window.open call to: " + newUrl);
+                requestedUrls.add(newUrl);
                 return allPurposeProxy;
-            }
-            UICGLOBAL.debug("Detected window.open call to: " + newUrl);
-            requestedUrls.add(newUrl);
-            return allPurposeProxy;
-        };
+            };
+        }
 
 
         recordBlockedFeature = function (featureName) {
@@ -342,7 +344,15 @@
             UICGLOBAL.features[featureType].forEach(function (featurePath) {
                 featureTypeToFuncMap[featureType](featurePath);
             });
-        });
+       });
+
+
+        if (UICGLOBAL.manualMode === true) {
+            origAddEventListener.call(window, "beforeunload", function (event) {
+                UICGLOBAL.reportBlockedFeatures(recordedFeatures);
+            });
+            return;
+        }
 
         // If we're a top level document (ie not an iframe), then
         // we want to register to let the extension know when we're
@@ -354,7 +364,6 @@
         UICGLOBAL.debug("Instrumenting for top page: " + window.location.toString());
 
         origAddEventListener.call(document, "DOMContentLoaded", function (event) {
-            console.log("I think we're not an iframe: " + currentLocationString);
             Array.prototype.forEach.call(origQuerySelectorAll.call(document, "a"), function (anAnchor) {
                 origAddEventListener.call(anAnchor, "click", sharedAnchorEventListiner, false);
                 sharedAnchorEventListiner.onclick = sharedAnchorEventListiner;

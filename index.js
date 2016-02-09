@@ -148,6 +148,7 @@ makePageModObj = function (isForIFrame) {
             features: featuresToCount,
             secPerPage: args.secPerPage,
             gremlinSource: gremlinSource,
+            manual: args.manual,
             isIFrame: isForIFrame
         },
         contentScriptFile: [
@@ -175,7 +176,6 @@ makePageModObj = function (isForIFrame) {
 
             worker.port.on("content-request-record-blocked-features", function (data) {
                 var {features, url} = data;
-                debugMessage("content-request-record-blocked-features: " + worker.tab.url);
                 currentProcessFeatures.add(url, features);
             });
 
