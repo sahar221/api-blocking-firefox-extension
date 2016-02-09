@@ -144,7 +144,7 @@ makePageModObj = function (isForIFrame) {
             debug: debug,
             features: featuresToCount,
             secPerPage: args.secPerPage,
-            gremlinSource: gremlinSource,
+            gremlinSource: args.manual ? "" : gremlinSource,
             isIFrame: isForIFrame
         },
         contentScriptFile: [
@@ -239,7 +239,7 @@ makePageModObj = function (isForIFrame) {
 };
 
 
-if (args.url) {
+if (args.url || args.manual) {
     pageMod.PageMod(makePageModObj(true));
     pageMod.PageMod(makePageModObj(false));
     
