@@ -23,12 +23,12 @@ FF_API_SEC_PER_PAGE=30;
 FF_API_MERGE=0;
 FF_API_RELATED_DOMAINS="";
 FF_PATH="";
-TEST_PROFILE="mg1i8xyv.Control";
+TEST_PROFILE="tnrzp446.Control";
 
 while getopts r:n:s:b:u:d:me opt; do
   case $opt in
     e)
-      TEST_PROFILE="udihpd1p.Test";
+      TEST_PROFILE="is197ph7.Test";
       ;;
 
     d)
