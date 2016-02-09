@@ -10,7 +10,6 @@ var debug = false,
     self = require("sdk/self"),
     {env} = require('sdk/system/environment'),
     fileIO = require("sdk/io/file"),
-    gremlinSource = self.data.load("content/gremlins.js"),
     urlLib = require("sdk/url"),
     urlPriorityLib = require("lib/urls"),
     events = require("sdk/system/events"),
@@ -18,6 +17,7 @@ var debug = false,
     featuresToCount = featuresRuleParser.parse("features.csv"),
     visitedUrls = new Set(),
     allowedDomains = [],
+    gremlinSource,
     makePageModObj,
     openNewTab,
     tabTree,
@@ -59,6 +59,9 @@ args = {
 };
 
 allowedDomains = allowedDomains.concat(args.domains);
+if (!args.manual) {
+    gremlinSource = self.data.load("content/gremlins.js");
+}
 
 
 debugMessage = function (msg) {
@@ -144,7 +147,7 @@ makePageModObj = function (isForIFrame) {
             debug: debug,
             features: featuresToCount,
             secPerPage: args.secPerPage,
-            gremlinSource: args.manual ? "" : gremlinSource,
+            gremlinSource: gremlinSource,
             isIFrame: isForIFrame
         },
         contentScriptFile: [

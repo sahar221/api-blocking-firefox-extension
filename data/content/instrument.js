@@ -53,8 +53,10 @@
         allowCrossOriginArguments: true
     });
 
+    if (self.options.gremlinSource) {
+        unsafeWindow.eval(self.options.gremlinSource);
+    }
 
-    unsafeWindow.eval(self.options.gremlinSource);
     unsafeWindow.eval(`(function () {
 
         var featureRefFromPath,
