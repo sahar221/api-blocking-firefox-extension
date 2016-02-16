@@ -34,7 +34,7 @@ FF_API_PERFORMANCE="";
 while getopts r:n:s:b:u:d:me opt; do
   case $opt in
     e)
-      TEST_PROFILE="oqzhxmvs.Test";
+      TEST_PROFILE="0luqvqou.Test";
       ;;
 
     d)

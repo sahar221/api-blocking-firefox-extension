@@ -20,7 +20,7 @@ while [[ 1 ]]; do
 	for LINE in $ALL_LINES; do
 
 		DOMAIN=`echo $LINE | awk -F'-' '{print $1}'`;
-		SUBDOMAINS=`echo $LINE | awk -F'-' '{print $2}'`;
+		SUBDOMAINS=`echo $LINE | sed -E 's/[^-]+-//'`;
 		INDEX=0;
 
 		while [[ -e $DEST_DIR/$DOMAIN-$INDEX.json ]]; do
