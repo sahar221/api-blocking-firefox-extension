@@ -6,6 +6,7 @@ if [[ $# < 2 ]]; then
 fi;
 SOURCE_FILE=$1;
 DEST_DIR=$2;
+FF_BIN="/Users/snyderp/Desktop/firefox-43.0.4/obj-x86_64-apple-darwin15.3.0/dist/Nightly.app/Contents/MacOS/firefox";
 
 if [[ -z $3 ]]; then
 	BLOCK_FLAG="";
@@ -15,7 +16,7 @@ fi;
 
 while [[ 1 ]]; do
 
-	ALL_LINES=`cat $SOURCE_FILE | shuf`;
+	ALL_LINES=`cat $SOURCE_FILE | gshuf`;
 
 	for LINE in $ALL_LINES; do
 
@@ -33,7 +34,7 @@ while [[ 1 ]]; do
 			SUBDOMAINS_ARG="";
 		fi;
 
-		JSON=`./run.sh -b /home/bits/Code/firefox-43.0.4/obj-x86_64-unknown-linux-gnu/dist/bin/firefox $BLOCK_FLAG -u http://$DOMAIN $SUBDOMAINS_ARG`;
+		JSON=`./run.sh -b $FF_BIN $BLOCK_FLAG -u http://$DOMAIN $SUBDOMAINS_ARG`;
 		echo "Writing $DEST_DIR/$DOMAIN-$INDEX.json";
 		echo $JSON > $DEST_DIR/$DOMAIN-$INDEX.json;
 	done;

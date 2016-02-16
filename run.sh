@@ -23,13 +23,13 @@ FF_API_SEC_PER_PAGE=30;
 FF_API_MANUAL=0;
 FF_API_RELATED_DOMAINS="";
 FF_PATH="";
-TEST_PROFILE="y4qxywwp.Control";
+TEST_PROFILE="xi4ut0qi.Control";
 TIMEOUT_CMD="timeout 180";
 
 while getopts r:n:s:b:u:d:me opt; do
   case $opt in
     e)
-      TEST_PROFILE="o5vkxggb.Test";
+      TEST_PROFILE="ze2uzb3v.Test";
       ;;
 
     d)

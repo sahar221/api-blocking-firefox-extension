@@ -1382,3 +1382,6 @@ window.frameElement, property
 window.navigator, property
 window.external, property
 window.applicationCache, property
+navigator.geolocation.getCurrentPosition, method
+navigator.geolocation.watchPosition, method
+navigator.geolocation.clearWatch, method

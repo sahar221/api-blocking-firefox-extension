@@ -376,9 +376,6 @@
             }, UICGLOBAL.secPerPage * 1000);
             gremlins.createHorde()
                 .allGremlins()
-                .gremlin(function() {
-                    window.$ = function() {};
-                })
                 .unleash();
           }, false);
     }())`);
