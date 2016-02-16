@@ -15,6 +15,10 @@
 #  -m Whether to put the extension into manual mode, in which case we don't
 #     inject the gremlins code or open new tabs, and just record the user's
 #     interactions
+#  -p Put the extension in performance measurement mode.  Basically just
+#     disables a whole lot of stuff and hammer's DJB's site.  Use "c" for
+#     "control" mode (ie don't do any instrumentation, just take measurements)
+#     and "t" for test mode (do the instrumentation too).
 
 SCRIPT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd );
 FF_API_DEPTH=2;
@@ -23,13 +27,14 @@ FF_API_SEC_PER_PAGE=30;
 FF_API_MANUAL=0;
 FF_API_RELATED_DOMAINS="";
 FF_PATH="";
-TEST_PROFILE="xi4ut0qi.Control";
+TEST_PROFILE="y2hug1jy.Control";
 TIMEOUT_CMD="timeout 180";
+FF_API_PERFORMANCE="";
 
 while getopts r:n:s:b:u:d:me opt; do
   case $opt in
     e)
-      TEST_PROFILE="ze2uzb3v.Test";
+      TEST_PROFILE="oqzhxmvs.Test";
       ;;
 
     d)
@@ -60,6 +65,13 @@ while getopts r:n:s:b:u:d:me opt; do
     u)
       FF_API_URL=$OPTARG;
       ;;
+
+    p)
+      FF_API_PERFORMANCE=$OPTARG;
+      FF_API_MANUAL=1;
+      TIMEOUT_CMD="";
+      FF_API_URL="http://cr.yp.to/";
+      ;;
   esac;
 done;
 
@@ -80,8 +92,10 @@ if [[ -d $CUR_PROFILE ]]; then
 	rm -Rf $CUR_PROFILE;
 fi;
 
-cp -r $SCRIPT_DIR/data/$TEST_PROFILE /tmp/$TEST_PROFILE;
+TMP_PROFILE_NAME="$TEST_PROFILE-$RANDOM";
 
-FF_API_URL=$FF_API_URL FF_API_RELATED_DOMAINS=$FF_API_RELATED_DOMAINS FF_API_MANUAL=$FF_API_MANUAL FF_API_DEPTH=$FF_API_DEPTH FF_API_URL_PER_PAGE=$FF_API_URL_PER_PAGE FF_API_SEC_PER_PAGE=$FF_API_SEC_PER_PAGE $TIMEOUT_CMD $FF_PATH --profile /tmp/$TEST_PROFILE;
+cp -r $SCRIPT_DIR/data/$TEST_PROFILE /tmp/$TMP_PROFILE_NAME;
 
-rm -Rf /tmp/$TEST_PROFILE;
+FF_API_PERFORMANCE=$FF_API_PERFORMANCE FF_API_URL=$FF_API_URL FF_API_RELATED_DOMAINS=$FF_API_RELATED_DOMAINS FF_API_MANUAL=$FF_API_MANUAL FF_API_DEPTH=$FF_API_DEPTH FF_API_URL_PER_PAGE=$FF_API_URL_PER_PAGE FF_API_SEC_PER_PAGE=$FF_API_SEC_PER_PAGE $TIMEOUT_CMD $FF_PATH --profile /tmp/$TMP_PROFILE_NAME;
+
+rm -Rf /tmp/$TMP_PROFILE_NAME;

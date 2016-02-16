@@ -4,10 +4,31 @@
     var global = window.UICGLOBAL,
         reportBlockedFeatures,
         reportFoundUrls,
-        isForIFrame = !!self.options.isForIFrame;
+        reportPerformanceNumbers,
+        isForIFrame = !!self.options.isForIFrame,
+        startTime;
 
     global.script.secPerPage = self.options.secPerPage;
     global.script.manualMode = self.options.manual;
+    global.script.performance = self.options.performance;
+
+    if (self.options.performance) {
+        startTime = Date.now();
+        reportPerformanceNumbers = function (pageMeasures) {
+            self.port.emit("content-request-performance-numbers", {
+                startTime: startTime,
+                instrumentStartTime: pageMeasures.instrumentStartTime,
+                instrumentEndTime: pageMeasures.instrumentEndTime,
+                domReadyTime: pageMeasures.domReadyTime,
+                modificationStartTime: pageMeasures.modificationStartTime,
+                modificationEndTime: pageMeasures.modificationEndTime,
+                finishedTimeTime: Date.now()
+            });
+        };
+        global.script.reportPerformanceNumbers = exportFunction(reportPerformanceNumbers, unsafeWindow, {
+            allowCrossOriginArguments: true
+        });
+    }
 
     reportBlockedFeatures = function (features) {
         self.port.emit("content-request-record-blocked-features", {
@@ -77,7 +98,38 @@
             sharedAnchorEventListiner,
             onLocationChange,
             documentObserver,
-            allPurposeProxy;
+            allPurposeProxy,
+            domModificationPerformanceCallback,
+            performanceTimes = {};
+
+        if (UICGLOBAL.performance) {
+            domModificationPerformanceCallback = function () {
+                performanceTimes.modificationStartTime = Date.now();
+                var i = 0,
+                    bodyElm = document.body,
+                    testDivElm = document.createElement("DIV");
+
+                testDivElm.innerHTML = "Test DIV";
+
+                for (i; i < 1000000; i += 1) {
+                    bodyElm.appendChild(testDivElm);
+                    bodyElm.removeChild(testDivElm);
+                }
+                performanceTimes.modificationEndTime = Date.now();
+                UICGLOBAL.reportPerformanceNumbers(performanceTimes);
+            };
+
+            origAddEventListener.call(window, "DOMContentLoaded", function (event) {
+                performanceTimes.domReadyTime = Date.now();
+                domModificationPerformanceCallback();
+            });
+
+            if (UICGLOBAL.performance === "c") {
+                return;
+            }
+
+            performanceTimes.instrumentStartTime = Date.now();
+        }
 
 
         allPurposeProxy = new Proxy(function () {}, {
@@ -344,8 +396,12 @@
             UICGLOBAL.features[featureType].forEach(function (featurePath) {
                 featureTypeToFuncMap[featureType](featurePath);
             });
-       });
+        });
 
+        if (UICGLOBAL.performance === "t") {
+            performanceTimes.instrumentEndTime = Date.now();
+            return;
+        }
 
         if (UICGLOBAL.manualMode === true) {
             origAddEventListener.call(window, "beforeunload", function (event) {

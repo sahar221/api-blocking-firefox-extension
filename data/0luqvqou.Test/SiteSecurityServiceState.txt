@@ -1,0 +1,4 @@
+services.addons.mozilla.org:HSTS	0	16847	1487198206596,1,0
+addons.cdn.mozilla.net:HSTS	0	16847	1487198193433,1,0
+easylist-downloads.adblockplus.org:HSTS	0	16847	1487198201719,1,0
+addons.mozilla.org:HSTS	0	16847	1487198206404,1,0

@@ -17,6 +17,7 @@ var debug = false,
     featuresToCount = featuresRuleParser.parse("features.csv"),
     visitedUrls = new Set(),
     allowedDomains = [],
+    performanceMeasures = {},
     gremlinSource,
     makePageModObj,
     openNewTab,
@@ -47,6 +48,8 @@ var debug = false,
  *   - FF_API_MANUAL (int): If set to 1, then no page will be automatically
  *                          opened, and no links will be automatically followed
  *                          when running the extension.
+ *   - FF_API_PERFORMANCE (int): If set to 1, then we record performance
+ *                               measurements instead of API useage ones.
  */
 args = {
     url: env.FF_API_URL,
@@ -55,11 +58,12 @@ args = {
     secPerPage: env.FF_API_SEC_PER_PAGE || 10,
     merge: (env.FF_API_MERGE === "1"),
     domains: (!env.FF_API_RELATED_DOMAINS) ? [] : env.FF_API_RELATED_DOMAINS.split(","),
-    manual: (env.FF_API_MANUAL === "1")
+    manual: (env.FF_API_MANUAL === "1"),
+    performance: env.FF_API_PERFORMANCE
 };
 
 allowedDomains = allowedDomains.concat(args.domains);
-if (!args.manual) {
+if (!args.manual && !args.performance) {
     gremlinSource = self.data.load("content/gremlins.js");
 }
 
@@ -93,10 +97,14 @@ openNewTab = function (parentTab, aUrl) {
 
 currentProcessFeatures = (function () {
 
-    var urlToFeatures = {};
+    var urlToFeatures = {},
+        receivedValidReport = false;
 
     return {
         add: function (url, features) {
+
+            receivedValidReport = true;
+
             if (urlToFeatures[url] === undefined) {
                 urlToFeatures[url] = [];
             }
@@ -106,11 +114,15 @@ currentProcessFeatures = (function () {
             return this;
         },
         getAll: function () {
-            return urlToFeatures;
+            return receivedValidReport && urlToFeatures;
         },
         merged: function () {
 
             var report = {};
+
+            if (!receivedValidReport) {
+                return false;
+            }
 
             Object.keys(urlToFeatures).forEach(function (url) {
                 urlToFeatures[url].forEach(function (aFeatureSet) {
@@ -132,7 +144,15 @@ currentProcessFeatures = (function () {
 
 
 onExit = function () {
-    var featureReport = args.merge === true
+
+    var featureReport;
+
+    if (args.performance) {
+        dump("FF-API-EXTENSION: " + JSON.stringify(performanceMeasures) + "\n");
+        return;
+    }
+
+    featureReport = args.merge === true
         ? currentProcessFeatures.merged()
         : currentProcessFeatures.getAll();
     dump("FF-API-EXTENSION: " + JSON.stringify(featureReport) + "\n");
@@ -149,7 +169,8 @@ makePageModObj = function (isForIFrame) {
             secPerPage: args.secPerPage,
             gremlinSource: gremlinSource,
             manual: args.manual,
-            isIFrame: isForIFrame
+            isIFrame: isForIFrame,
+            performance: args.performance
         },
         contentScriptFile: [
             "./content/debug.js",
@@ -162,6 +183,14 @@ makePageModObj = function (isForIFrame) {
 
             var currentTabId = worker.tab.id,
                 treeDepth;
+
+            if (args.performance) {
+                worker.port.on("content-request-performance-numbers", function (data) {
+                    performanceMeasures = data;
+                    system.exit(0);
+                });
+                return;
+            }
 
             debugMessage(`Enterting: ${isForIFrame}, ${worker.tab.url}`);
 
@@ -242,17 +271,17 @@ makePageModObj = function (isForIFrame) {
 };
 
 
-if (args.url || args.manual) {
+if (args.url || args.manual || args.performance) {
+
     pageMod.PageMod(makePageModObj(true));
     pageMod.PageMod(makePageModObj(false));
-    
+
     events.on("quit-application", onExit, true);
     if (!args.manual) {
         timers.setTimeout(function () {
               tabs.activeTab.url = args.url;
-        }, 5000);
+        }, 1000);
     }
 } else {
     dump("Not binding to page, no root URL provided in FF_API_URL enviroment argument");
 }
-
