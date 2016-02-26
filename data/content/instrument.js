@@ -5,12 +5,14 @@
         reportBlockedFeatures,
         reportFoundUrls,
         reportPerformanceNumbers,
+        reportJavascript,
         isForIFrame = !!self.options.isForIFrame,
         startTime;
 
     global.script.secPerPage = self.options.secPerPage;
     global.script.manualMode = self.options.manual;
     global.script.performance = self.options.performance;
+    global.script.jsReport = self.options.jsReport;
 
     if (self.options.performance) {
         startTime = Date.now();
@@ -30,6 +32,7 @@
         });
     }
 
+
     reportBlockedFeatures = function (features) {
         self.port.emit("content-request-record-blocked-features", {
             features: features,
@@ -39,6 +42,18 @@
     global.script.reportBlockedFeatures = exportFunction(reportBlockedFeatures, unsafeWindow, {
         allowCrossOriginArguments: true
     });
+
+
+    reportJavascript = function (jsData) {
+        self.port.emit("content-request-record-javascript", {
+            javacript: jsData,
+            url: unsafeWindow.location.toString.call(unsafeWindow.location)
+        });
+    };
+    global.script.reportJavascript = exportFunction(reportJavascript, unsafeWindow, {
+        allowCrossOriginArguments: true
+    });
+
 
     /**
      * Reports a list of urls (relative or absolute) that are referenced
@@ -87,6 +102,7 @@
             instrumentMethod,
             instrumentPropertySet,
             featureTypeToFuncMap,
+            origGetElementsByTagName = window.document.getElementsByTagName,
             origQuerySelectorAll = window.document.querySelectorAll,
             origSetTimeout = window.setTimeout,
             origAddEventListener = window.Node.prototype.addEventListener,
@@ -403,6 +419,24 @@
             return;
         }
 
+        if (UICGLOBAL.jsReport === true) {
+            origAddEventListener.call(window, "beforeunload", function (event) {
+
+                var scriptTags = origGetElementsByTagName.call(document, "script"),
+                    data;
+
+                data = Array.prototype.map.call(scriptTags, function (anElm) {
+
+                    if (anElm.src) {
+                        return {src: parseStringToUrl(anElm.src).href};
+                    }
+                    return {text: anElm.innerHTML};
+                });
+
+                UICGLOBAL.reportJavascript(data);
+            });
+        }
+
         if (UICGLOBAL.manualMode === true) {
             origAddEventListener.call(window, "beforeunload", function (event) {
                 UICGLOBAL.reportBlockedFeatures(recordedFeatures);
@@ -424,12 +458,14 @@
                 origAddEventListener.call(anAnchor, "click", sharedAnchorEventListiner, false);
                 sharedAnchorEventListiner.onclick = sharedAnchorEventListiner;
             });
+
             origSetTimeout.call(window, function () {
                 var anchorTags = origQuerySelectorAll.call(document, "a[href]"),
                     hrefs = Array.prototype.map.call(anchorTags, a => a.href);
                 UICGLOBAL.reportBlockedFeatures(recordedFeatures);
                 UICGLOBAL.reportFoundUrls(requestedUrls.all(), hrefs);
             }, UICGLOBAL.secPerPage * 1000);
+
             gremlins.createHorde()
                 .allGremlins()
                 .unleash();

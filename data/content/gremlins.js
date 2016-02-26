@@ -8,6 +8,7 @@
 		for(var i in a) (typeof exports === 'object' ? exports : root)[i] = a[i];
 	}
 })(this, function() {
+		var origSetTimeout = window.setTimeout;
 return /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
 /******/ 	var installedModules = {};
@@ -2207,7 +2208,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                    triggerTouch(touches, element, 'move');
 	                }
 
-	                setTimeout(gestureLoop, interval);
+	                origSetTimeout.call(window, gestureLoop, interval);
 	                loop++;
 	            }
 	            gestureLoop();
@@ -2380,7 +2381,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            var oldBorder = element.attributes['data-old-border'];
 	            element.style.border = "1px solid red";
 
-	            setTimeout(function() {
+	            origSetTimeout.call(window, function() {
 	                element.style.border = oldBorder;
 	            }, 500);
 	        }

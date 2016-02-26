@@ -24,6 +24,7 @@ var debug = false,
     tabTree,
     args,
     onExit,
+    javascriptMeasurements,
     currentProcessFeatures,
     debugMessage;
 
@@ -50,6 +51,10 @@ var debug = false,
  *                          when running the extension.
  *   - FF_API_PERFORMANCE (int): If set to 1, then we record performance
  *                               measurements instead of API useage ones.
+ *   - FF_API_JS_REPORT (int): If set to 1, then we include in the JSON
+ *                             report information about what script was
+ *                             executed on each page.
+ *
  */
 args = {
     url: env.FF_API_URL,
@@ -59,8 +64,10 @@ args = {
     merge: (env.FF_API_MERGE === "1"),
     domains: (!env.FF_API_RELATED_DOMAINS) ? [] : env.FF_API_RELATED_DOMAINS.split(","),
     manual: (env.FF_API_MANUAL === "1"),
-    performance: env.FF_API_PERFORMANCE
+    performance: env.FF_API_PERFORMANCE,
+    jsReport: (env.FF_API_JS_REPORT === "1")
 };
+
 
 allowedDomains = allowedDomains.concat(args.domains);
 if (!args.manual && !args.performance) {
@@ -93,6 +100,29 @@ openNewTab = function (parentTab, aUrl) {
         onOpen: aTab => nodeInTabTree.addChild(aTab.id)
     });
 };
+
+
+javascriptMeasurements = (function () {
+
+    var javascriptMeasures = {},
+        receivedValidReport = false;
+
+    return {
+        add: function (url, jsData) {
+
+            receivedValidReport = true;
+
+            if (javascriptMeasures[url] === undefined) {
+                javascriptMeasures[url] = [];
+            }
+
+            javascriptMeasures[url].push(jsData);
+        },
+        getAll: function () {
+            return receivedValidReport && javascriptMeasures;
+        }
+    };
+}());
 
 
 currentProcessFeatures = (function () {
@@ -155,6 +185,15 @@ onExit = function () {
     featureReport = args.merge === true
         ? currentProcessFeatures.merged()
         : currentProcessFeatures.getAll();
+
+    if (args.jsReport) {
+        dump("FF-API-EXTENSION: " + JSON.stringify({
+            features: featureReport,
+            javascript: javascriptMeasurements.getAll()
+        }) + "\n");
+        return;
+    }
+
     dump("FF-API-EXTENSION: " + JSON.stringify(featureReport) + "\n");
 };
 
@@ -170,7 +209,8 @@ makePageModObj = function (isForIFrame) {
             gremlinSource: gremlinSource,
             manual: args.manual,
             isIFrame: isForIFrame,
-            performance: args.performance
+            performance: args.performance,
+            jsReport: args.jsReport
         },
         contentScriptFile: [
             "./content/debug.js",
@@ -208,6 +248,10 @@ makePageModObj = function (isForIFrame) {
                 currentProcessFeatures.add(url, features);
             });
 
+            worker.port.on("content-request-record-javascript", function (data) {
+                var {javacript, url} = data;
+                javascriptMeasurements.add(url, javacript)
+            });
 
             if (isForIFrame || args.manual) {
                 return;

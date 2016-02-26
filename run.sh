@@ -19,6 +19,8 @@
 #     disables a whole lot of stuff and hammer's DJB's site.  Use "c" for
 #     "control" mode (ie don't do any instrumentation, just take measurements)
 #     and "t" for test mode (do the instrumentation too).
+#  -j If passed, the produced JSON report will also include a report on the
+#     sources of javascript executed in the page
 
 SCRIPT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd );
 FF_API_DEPTH=2;
@@ -26,15 +28,20 @@ FF_API_URL_PER_PAGE=3;
 FF_API_SEC_PER_PAGE=30;
 FF_API_MANUAL=0;
 FF_API_RELATED_DOMAINS="";
+FF_API_JS_REPORT=0;
 FF_PATH="";
-TEST_PROFILE="y2hug1jy.Control";
+TEST_PROFILE="n7hzhgm2.Control";
 TIMEOUT_CMD="timeout 180";
 FF_API_PERFORMANCE="";
 
-while getopts r:n:s:b:u:d:me opt; do
+while getopts r:n:s:b:u:d:mej opt; do
   case $opt in
+    j)
+      FF_API_JS_REPORT=1;
+      ;;
+
     e)
-      TEST_PROFILE="0luqvqou.Test";
+      TEST_PROFILE="uv52zv9c.Test";
       ;;
 
     d)
@@ -96,6 +103,14 @@ TMP_PROFILE_NAME="$TEST_PROFILE-$RANDOM";
 
 cp -r $SCRIPT_DIR/data/$TEST_PROFILE /tmp/$TMP_PROFILE_NAME;
 
-FF_API_PERFORMANCE=$FF_API_PERFORMANCE FF_API_URL=$FF_API_URL FF_API_RELATED_DOMAINS=$FF_API_RELATED_DOMAINS FF_API_MANUAL=$FF_API_MANUAL FF_API_DEPTH=$FF_API_DEPTH FF_API_URL_PER_PAGE=$FF_API_URL_PER_PAGE FF_API_SEC_PER_PAGE=$FF_API_SEC_PER_PAGE $TIMEOUT_CMD $FF_PATH --profile /tmp/$TMP_PROFILE_NAME;
+FF_API_PERFORMANCE=$FF_API_PERFORMANCE \
+  FF_API_URL=$FF_API_URL \
+  FF_API_JS_REPORT=$FF_API_JS_REPORT \
+  FF_API_RELATED_DOMAINS=$FF_API_RELATED_DOMAINS \
+  FF_API_MANUAL=$FF_API_MANUAL \
+  FF_API_DEPTH=$FF_API_DEPTH \
+  FF_API_URL_PER_PAGE=$FF_API_URL_PER_PAGE \
+  FF_API_SEC_PER_PAGE=$FF_API_SEC_PER_PAGE \
+  $TIMEOUT_CMD $FF_PATH --profile /tmp/$TMP_PROFILE_NAME;
 
 rm -Rf /tmp/$TMP_PROFILE_NAME;
