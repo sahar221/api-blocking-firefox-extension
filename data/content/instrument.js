@@ -2,7 +2,7 @@
     "use strict";
 
     var global = window.UICGLOBAL,
-        reportBlockedFeatures,
+        reportUsedFeatures,
         reportFoundUrls,
         reportPerformanceNumbers,
         reportJavascript,
@@ -33,13 +33,30 @@
     }
 
 
-    reportBlockedFeatures = function (features) {
-        self.port.emit("content-request-record-blocked-features", {
+    reportUsedFeatures = function (features, featureTimeline) {
+
+        var coallecedTimeline = featureTimeline.reduce(function (prev, cur) {
+
+            var lastSeenLoopIndex = prev[1],
+                featureId = cur[0],
+                currentLoopIndex = cur[1];
+
+            if (lastSeenLoopIndex === currentLoopIndex) {
+                prev[0][prev[0].length].push(featureId);
+            } else {
+                prev[0].push([featureId]);
+                prev[1] = currentLoopIndex;
+            }
+
+        }, [[], -1]);
+
+        self.port.emit("content-request-record-used-features", {
             features: features,
+            timeline: coallecedTimeline[0],
             url: unsafeWindow.location.toString.call(unsafeWindow.location)
         });
     };
-    global.script.reportBlockedFeatures = exportFunction(reportBlockedFeatures, unsafeWindow, {
+    global.script.reportUsedFeatures = exportFunction(reportUsedFeatures, unsafeWindow, {
         allowCrossOriginArguments: true
     });
 
@@ -96,12 +113,15 @@
 
     unsafeWindow.eval(`(function () {
 
-        var featureRefFromPath,
-            recordBlockedFeature,
+        var eventLoopTurnIndex = 0,
+            eventLoopTickerCallback,
+            featureRefFromPath,
+            recordUsedFeature,
             recordedFeatures = {},
             instrumentMethod,
             instrumentPropertySet,
             featureTypeToFuncMap,
+            origRequestAnimationFrame = window.requestAnimationFrame,
             origGetElementsByTagName = window.document.getElementsByTagName,
             origQuerySelectorAll = window.document.querySelectorAll,
             origSetTimeout = window.setTimeout,
@@ -116,7 +136,16 @@
             documentObserver,
             allPurposeProxy,
             domModificationPerformanceCallback,
+            featureCount = 0,
+            featureTimeline = [],
             performanceTimes = {};
+
+
+        eventLoopTickerCallback = function () {
+            eventLoopTurnIndex += 1;
+            origRequestAnimationFrame.call(window, eventLoopTickerCallback);
+        };
+
 
         if (UICGLOBAL.performance) {
             domModificationPerformanceCallback = function () {
@@ -252,25 +281,25 @@
                 return newVal;
             };
             document.watch("location", function () {
-                recordBlockedFeature(["document", "location"]);
+                recordUsedFeature(["document", "location"]);
                 onLocationChange.apply(this, arguments);
             });
             window.watch("location", function () {
-                recordBlockedFeature(["window", "location"]);
+                recordUsedFeature(["window", "location"]);
                 onLocationChange.apply(this, arguments);
             });
             document.location.watch("href", function () {
-                recordBlockedFeature(["document", "location", "href"]);
+                recordUsedFeature(["document", "location", "href"]);
                 onLocationChange.apply(this, arguments);
             });
             window.location.watch("href", function () {
-                recordBlockedFeature(["window", "location", "href"]);
+                recordUsedFeature(["window", "location", "href"]);
                 onLocationChange.apply(this, arguments);
             });
 
 
             window.open = function (newUrl) {
-                recordBlockedFeature(["window", "open"]);
+                recordUsedFeature(["window", "open"]);
                 if (isUrlOnCurrentPage(newUrl)) {
                     return allPurposeProxy;
                 }
@@ -281,13 +310,19 @@
         }
 
 
-        recordBlockedFeature = function (featureName) {
+        recordUsedFeature = function (featureName) {
             featureName = Array.isArray(featureName) ? featureName.join(".") : featureName;
             if (recordedFeatures[featureName] === undefined) {
-                recordedFeatures[featureName] = 1;
+                numFeaturesSeen += 1;
+                recordedFeatures[featureName] = {
+                    count: 1,
+                    id: numFeaturesSeen
+                };
             } else {
-                recordedFeatures[featureName] += 1;
+                recordedFeatures[featureName].count += 1;
             }
+
+            featureTimeline.push([recordedFeatures[featureName].id, eventLoopTurnIndex]);
         };
 
 
@@ -359,7 +394,7 @@
 
             [propertyRef, propertyLeafName, propertyParentRef] = propertyLookupResult;
             propertyParentRef.watch(propertyLeafName, function (id, oldval, newval) {
-                recordBlockedFeature(propertyPath);
+                recordUsedFeature(propertyPath);
                 return newval;
             });
 
@@ -395,7 +430,7 @@
 
             [featureRef, featureLeafName, parentRef] = methodLookupResult;
             parentRef[featureLeafName] = function () {
-                recordBlockedFeature(methodPath);
+                recordUsedFeature(methodPath);
                 return featureRef.apply(this, arguments);
             };
 
@@ -437,9 +472,9 @@
             });
         }
 
-        if (UICGLOBAL.manualMode === true) {
+        if (UICGLOBAL.manualMode === true || ${isForIFrame}) {
             origAddEventListener.call(window, "beforeunload", function (event) {
-                UICGLOBAL.reportBlockedFeatures(recordedFeatures);
+                UICGLOBAL.reportUsedFeatures(recordedFeatures, featureTimeline);
             });
             return;
         }
@@ -462,7 +497,7 @@
             origSetTimeout.call(window, function () {
                 var anchorTags = origQuerySelectorAll.call(document, "a[href]"),
                     hrefs = Array.prototype.map.call(anchorTags, a => a.href);
-                UICGLOBAL.reportBlockedFeatures(recordedFeatures);
+                UICGLOBAL.reportUsedFeatures(recordedFeatures, featureTimeline);
                 UICGLOBAL.reportFoundUrls(requestedUrls.all(), hrefs);
             }, UICGLOBAL.secPerPage * 1000);
 

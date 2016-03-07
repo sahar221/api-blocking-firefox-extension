@@ -33,7 +33,8 @@ while [[ 1 ]]; do
 			SUBDOMAINS_ARG="";
 		fi;
 
-		JSON=`./run.sh -b /home/bits/Code/firefox-43.0.4/obj-x86_64-unknown-linux-gnu/dist/bin/firefox $BLOCK_FLAG -u http://$DOMAIN $SUBDOMAINS_ARG`;
+		# JSON=`./run.sh -b /home/bits/Code/firefox-43.0.4/obj-x86_64-unknown-linux-gnu/dist/bin/firefox $BLOCK_FLAG -u http://$DOMAIN $SUBDOMAINS_ARG -j`;
+		JSON=`./run.sh -b ~/Desktop/firefox-43.0.4/obj-x86_64-apple-darwin15.3.0/dist/Nightly.app/Contents/MacOS/firefox $BLOCK_FLAG -u http://$DOMAIN $SUBDOMAINS_ARG -j`;
 		echo "Writing $DEST_DIR/$DOMAIN-$INDEX.json";
 		echo $JSON > $DEST_DIR/$DOMAIN-$INDEX.json;
 	done;

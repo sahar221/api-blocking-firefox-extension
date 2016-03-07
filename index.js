@@ -25,7 +25,7 @@ var debug = false,
     args,
     onExit,
     javascriptMeasurements,
-    currentProcessFeatures,
+    currentProcessFeatures = {},
     debugMessage;
 
 
@@ -41,9 +41,6 @@ var debug = false,
  *   - FF_API_SEC_PER_PAGE (int): The number of seconds to wait before
  *                                 searching the page for URLs to load.
  *                                 Defaults to 10 seconds.
- *   - FF_API_MERGE (int): If set to 1, the printed out JSON report of
- *                         feature usage will be merged into a single report
- *                         instead of broken out by source URL.
  *   - FF_API_DOMAINS (string): A comma separated list of domains that
  *                              we accept clicks to.
  *   - FF_API_MANUAL (int): If set to 1, then no page will be automatically
@@ -61,7 +58,6 @@ args = {
     depth: env.FF_API_DEPTH || 2,
     urlsPerPage: env.FF_API_URL_PER_PAGE || 3,
     secPerPage: env.FF_API_SEC_PER_PAGE || 10,
-    merge: (env.FF_API_MERGE === "1"),
     domains: (!env.FF_API_RELATED_DOMAINS) ? [] : env.FF_API_RELATED_DOMAINS.split(","),
     manual: (env.FF_API_MANUAL === "1"),
     performance: env.FF_API_PERFORMANCE,
@@ -131,7 +127,10 @@ currentProcessFeatures = (function () {
         receivedValidReport = false;
 
     return {
-        add: function (url, features) {
+        add: function (url, features, timeline) {
+
+            var featureToIdMapping = {},
+                featureIdToCount = {};
 
             receivedValidReport = true;
 
@@ -139,35 +138,22 @@ currentProcessFeatures = (function () {
                 urlToFeatures[url] = [];
             }
 
-            urlToFeatures[url].push(features);
+            Object.keys(features).forEach(function (aFeatureName) {
+                var featureId = features[aFeatureName].id;
+                featureToIdMapping[aFeatureName] = featureId;
+                featureIdToCount[featureId] = features[aFeatureName].count;
+            });
+
+            urlToFeatures[url].push({
+                mapping: featureToIdMapping,
+                counts: featureIdToCount,
+                timeline: timeline
+            });
 
             return this;
         },
         getAll: function () {
             return receivedValidReport && urlToFeatures;
-        },
-        merged: function () {
-
-            var report = {};
-
-            if (!receivedValidReport) {
-                return false;
-            }
-
-            Object.keys(urlToFeatures).forEach(function (url) {
-                urlToFeatures[url].forEach(function (aFeatureSet) {
-                    Object.keys(aFeatureSet).forEach(function (aFeature) {
-
-                        if (report[aFeature] === undefined) {
-                            report[aFeature] = 0;
-                        }
-
-                        report[aFeature] += aFeatureSet[aFeature]
-                    });
-                });
-            });
-
-            return report;
         }
     };
 }());
@@ -182,9 +168,7 @@ onExit = function () {
         return;
     }
 
-    featureReport = args.merge === true
-        ? currentProcessFeatures.merged()
-        : currentProcessFeatures.getAll();
+    featureReport = currentProcessFeatures.getAll();
 
     if (args.jsReport) {
         dump("FF-API-EXTENSION: " + JSON.stringify({
@@ -243,9 +227,9 @@ makePageModObj = function (isForIFrame) {
                 allowedDomains.push((new urlLib.URL(worker.tab.url)).host);
             }
 
-            worker.port.on("content-request-record-blocked-features", function (data) {
-                var {features, url} = data;
-                currentProcessFeatures.add(url, features);
+            worker.port.on("content-request-record-used-features", function (data) {
+                var {features, timeline, url} = data;
+                currentProcessFeatures.add(url, features, timeline);
             });
 
             worker.port.on("content-request-record-javascript", function (data) {
