@@ -42,11 +42,13 @@
                 currentLoopIndex = cur[1];
 
             if (lastSeenLoopIndex === currentLoopIndex) {
-                prev[0][prev[0].length].push(featureId);
+                prev[0][prev[0].length - 1].push(featureId);
             } else {
                 prev[0].push([featureId]);
                 prev[1] = currentLoopIndex;
             }
+
+            return prev;
 
         }, [[], -1]);
 
@@ -136,7 +138,7 @@
             documentObserver,
             allPurposeProxy,
             domModificationPerformanceCallback,
-            featureCount = 0,
+            numFeaturesSeen = 0,
             featureTimeline = [],
             performanceTimes = {};
 
@@ -145,6 +147,7 @@
             eventLoopTurnIndex += 1;
             origRequestAnimationFrame.call(window, eventLoopTickerCallback);
         };
+        eventLoopTickerCallback();
 
 
         if (UICGLOBAL.performance) {
