@@ -9,44 +9,32 @@ SOURCE_FILE=$1;
 DEST_DIR=$2;
 
 if [[ -z $3 ]]; then
-  NUM_PROCESSES=1;
+  NUM_PROCESSES=`nproc`;
 else
-  NUM_PROCESSES=$(($3 / 2));
+  NUM_PROCESSES=$3;
 fi;
-
-
-DISPLAY_NUM=$RANDOM;
-ERROR_LOG="/tmp/api-xvfb-errors";
-Xvfb :$DISPLAY_NUM -screen 0 1280x1024x24 2> $ERROR_LOG &
-if [[ $? -ne 0 ]]; then
-  echo "Unable to launch Xvfb";
-  cat $ERROR_LOG;
-  exit 1;
-else
-  rm $ERROR_LOG;
-fi;
-sleep 3;
-export DISPLAY_NUM;
-
-
-FIREFOX_PATH=`which firefox`;
-if [[ $? -ne 0 ]]; then
-  echo "Unable to find firefox in path.";
-  exit 1;
-fi;
-export FIREFOX_PATH;
 
 
 measure_domain() {
 
-  LINE=$1;
-  BLOCK_FLAG=$2;
+  DEST_DIR=$1;
+  LINE=$2;
+  BLOCK_FLAG=$3;
 
   DOMAIN=`echo $LINE | awk -F'-' '{print $1}'`;
   SUBDOMAINS=`echo $LINE | sed -E 's/[^-]+-//'`;
   INDEX=0;
 
-  while [[ -e $DEST_DIR/$DOMAIN-$INDEX.json ]]; do
+  if [[ -n $BLOCK_FLAG ]]; then
+    BLOCK_FLAG="-e";
+    BLOCK_NAME="-blocking"
+  else
+    BLOCK_NAME="";
+  fi;
+
+  DEST_FILE="$DEST_DIR/$DOMAIN-$INDEX$BLOCK_NAME.json";
+  while [[ -e $DEST_FILE ]]; do
+    DEST_FILE="$DEST_DIR/$DOMAIN-$INDEX$BLOCK_NAME.json";
     INDEX=$(($INDEX + 1));
   done;
 
@@ -62,9 +50,9 @@ measure_domain() {
     echo "Measuring $DOMAIN ($INDEX) - blocking";
   fi;
 
-  JSON=`DISPLAY=$DISPLAY_NUM ./run.sh -b $FIREFOX_PATH $BLOCK_FLAG -u http://$DOMAIN $SUBDOMAINS_ARG -j`;
-  DEST_FILE="$DEST_DIR/$DOMAIN-$INDEX.json";
-  echo $JSON > $DEST_FILE;
+  local FF_PATH=`which firefox`;
+
+  ./run.sh -b $FF_PATH $BLOCK_FLAG -u http://$DOMAIN $SUBDOMAINS_ARG > $DEST_FILE;
 }
 export -f measure_domain;
 
@@ -74,15 +62,14 @@ while [[ 1 ]]; do
   NUM_MEASUREMENTS=$(($NUM_MEASUREMENTS + 1));
   echo "Round $NUM_MEASUREMENTS";
 
-  ALL_LINES=`cat $SOURCE_FILE | shuf`;
-
-  echo $ALL_LINES | parallel -j $NUM_PROCESSES measure_domain {} &
+  cat $SOURCE_FILE | parallel --env measure_domain -j $NUM_PROCESSES "measure_domain $DEST_DIR {}";
   DEFAULT_CASE_PID=$!;
 
-  echo $ALL_LINES | parallel -j $NUM_PROCESSES measure_domain {} -e &
+  cat $SOURCE_FILE | parallel --env measure_domain -j $NUM_PROCESSES "measure_domain $DEST_DIR {} e";
   BLOCKING_CASE_PID=$!;
 
   wait $DEFAULT_CASE_PID;
   wait $BLOCKING_CASE_PID;
+  exit;
 done;
 
