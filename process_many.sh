@@ -70,6 +70,5 @@ while [[ 1 ]]; do
 
   wait $DEFAULT_CASE_PID;
   wait $BLOCKING_CASE_PID;
-  exit;
 done;
 
