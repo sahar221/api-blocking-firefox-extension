@@ -75,11 +75,12 @@ while [[ 1 ]]; do
   echo "Round $NUM_MEASUREMENTS";
 
   ALL_LINES=`cat $SOURCE_FILE | shuf`;
+  echo $ALL_LINES
 
-  echo $ALL_LINES | parallel -j $NUM_PROCESSES measure_domain {} &
+  echo $ALL_LINES | parallel -j $NUM_PROCESSES measure_domain {}
   DEFAULT_CASE_PID=$!;
 
-  echo $ALL_LINES | parallel -j $NUM_PROCESSES measure_domain {} -e &
+  echo $ALL_LINES | parallel -j $NUM_PROCESSES measure_domain {} -e
   BLOCKING_CASE_PID=$!;
 
   wait $DEFAULT_CASE_PID;
