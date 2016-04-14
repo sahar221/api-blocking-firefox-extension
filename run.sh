@@ -16,7 +16,7 @@
 #     inject the gremlins code or open new tabs, and just record the user's
 #     interactions
 #  -p Put the extension in performance measurement mode.  Basically just
-#     disables a whole lot of stuff and hammer's DJB's site.  Use "c" for
+#     disables a whole lot of stuff and hammers DJB's site.  Use "c" for
 #     "control" mode (ie don't do any instrumentation, just take measurements)
 #     and "t" for test mode (do the instrumentation too).
 #  -j If passed, the produced JSON report will also include a report on the
@@ -89,8 +89,7 @@ fi;
 
 
 if [[ -z $FF_PATH ]]; then
-  echo "Error: No Firefox binary path given.";
-  exit 1;
+  FF_PATH="/home/psnyde2/firefox/firefox";
 fi;
 
 
@@ -111,6 +110,6 @@ FF_API_PERFORMANCE=$FF_API_PERFORMANCE \
   FF_API_DEPTH=$FF_API_DEPTH \
   FF_API_URL_PER_PAGE=$FF_API_URL_PER_PAGE \
   FF_API_SEC_PER_PAGE=$FF_API_SEC_PER_PAGE \
-  $TIMEOUT_CMD $FF_PATH --profile /tmp/$TMP_PROFILE_NAME;
+  $TIMEOUT_CMD xvfb-run --auto-servernum --server-args='-screen 0 1280x1024x24' $FF_PATH --profile /tmp/$TMP_PROFILE_NAME;
 
 rm -Rf /tmp/$TMP_PROFILE_NAME;
