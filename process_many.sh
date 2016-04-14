@@ -21,8 +21,8 @@ measure_domain() {
   LINE=$2;
   BLOCK_FLAG=$3;
 
-  DOMAIN=`echo $LINE | awk -F'-' '{print $1}'`;
-  SUBDOMAINS=`echo $LINE | sed -E 's/[^-]+-//'`;
+  DOMAIN=`echo $LINE | awk -F';' '{print $1}'`;
+  SUBDOMAINS=`echo $LINE | awk -F';' '{print $2}'`;
   INDEX=0;
 
   if [[ -n $BLOCK_FLAG ]]; then
