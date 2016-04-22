@@ -1,2 +1,2 @@
-services.addons.mozilla.org:HSTS	4	16913	1492832666298,1,0
+services.addons.mozilla.org:HSTS	4	16913	1492840778150,1,0
 addons.cdn.mozilla.net:HSTS	0	16854	1487749526838,1,0

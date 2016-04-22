@@ -40,7 +40,8 @@ observerService.addObserver({
     var httpChannel,
         channelTab,
         tabWindow,
-        readyState;
+        readyState,
+        windowLocation;
 
     if (topic !== "http-on-modify-request") {
       return;
@@ -59,8 +60,9 @@ observerService.addObserver({
 
     tabWindow = tabUtils.getTabContentWindow(channelTab);
     readyState = tabWindow.document.readyState;
+    windowLocation = String(tabWindow.location.href);
 
-    if (readyState !== "complete" || String(tabWindow.location.href) === "about:blank") {
+    if (readyState !== "complete" || windowLocation.indexOf("http") !== 0) {
       debugMessage(httpChannel.URI.spec + ": Allowing new resource, Looks like the initial load on the tab");
       return;
     }

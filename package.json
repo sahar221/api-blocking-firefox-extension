@@ -1,7 +1,7 @@
 {
   "title": "API Blocker",
   "name": "api-blocker",
-  "version": "0.24",
+  "version": "0.25",
   "description": "Add on to block and measure browser APIs",
   "main": "index.js",
   "author": "Pete Snyder",
