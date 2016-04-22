@@ -8,14 +8,50 @@ Arch:x86_64-gcc3:$
 Default Browser.plugin:$
 /Library/Internet Plug-Ins/Default Browser.plugin:$
 601:$
-1449799652000:0:0:0:$
+1455432841000:0:0:0:$
 Provides information about the default web browser:$
 Default Browser Helper:$
 1
 0:application/apple-default-browser:Provides information about the default web browser::$
+JavaAppletPlugin.plugin:$
+/Library/Internet Plug-Ins/JavaAppletPlugin.plugin:$
+Java 8 Update 77 build 03:$
+1458538781000:0:0:0:$
+Displays Java applet content, or a placeholder if Java is not installed.:$
+Java Applet Plug-in:$
+21
+0:application/x-java-applet;deploy=11.77.2:Java Applet::$
+1:application/x-java-applet;version=1.4:Java Applet::$
+2:application/x-java-applet;version=1.2.1:Java Applet::$
+3:application/x-java-applet;version=1.2.2:Java Applet::$
+4:application/x-java-applet;version=1.3:Java Applet::$
+5:application/x-java-applet;version=1.8:Java Applet::$
+6:application/x-java-vm:Java Applet::$
+7:application/x-java-applet;version=1.1.1:Java Applet::$
+8:application/x-java-applet;version=1.2:Java Applet::$
+9:application/x-java-applet;version=1.7:Java Applet::$
+10:application/x-java-applet;version=1.4.1:Java Applet::$
+11:application/x-java-applet;version=1.1.2:Java Applet::$
+12:application/x-java-applet:Basic Java Applet::$
+13:application/x-java-applet;jpi-version=1.8.0_77:Java Applet::$
+14:application/x-java-applet;javafx=8.0.72:JavaFX Applet::$
+15:application/x-java-applet;version=1.1:Java Applet::$
+16:application/x-java-applet;version=1.1.3:Java Applet::$
+17:application/x-java-applet;version=1.6:Java Applet::$
+18:application/x-java-applet;version=1.4.2:Java Applet::$
+19:application/x-java-applet;version=1.3.1:Java Applet::$
+20:application/x-java-applet;version=1.5:Java Applet::$
+CitrixOnlineWebDeploymentPlugin.plugin:$
+/Users/snyderp/Library/Internet Plug-Ins/CitrixOnlineWebDeploymentPlugin.plugin:$
+1.0.105:$
+1366932480000:0:0:0:$
+Plugin that detects installed Citrix Online products (visit www.citrixonline.com).:$
+Citrix Online Web Deployment Plugin 1.0.0.105:$
+1
+0:application/x-col-application-detector:Citrix Online Application Detector::$
 
 [INVALID]
 /Library/Internet Plug-Ins/Quartz Composer.webplugin:$
-1438399046000:$
+1438506744000:$
 /Library/Internet Plug-Ins/Disabled Plug-Ins:$
 1440295931000:$

@@ -21,6 +21,7 @@
 #     and "t" for test mode (do the instrumentation too).
 #  -j If passed, the produced JSON report will also include a report on the
 #     sources of javascript executed in the page
+#  -x If passed, then firefox is run in Xvfb instead of the current display
 
 SCRIPT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd );
 FF_API_DEPTH=2;
@@ -33,9 +34,14 @@ FF_PATH="";
 TEST_PROFILE="n7hzhgm2.Control";
 TIMEOUT_CMD="timeout 180";
 FF_API_PERFORMANCE="";
+XVFB_CMD="";
 
-while getopts r:n:s:b:u:d:mej opt; do
+while getopts r:n:s:b:u:d:mejx opt; do
   case $opt in
+    x)
+      XVFB_CMD="xvfb-run --auto-servernum --server-args='-screen 0 1280x1024x24'";
+      ;;
+
     j)
       FF_API_JS_REPORT=1;
       ;;
@@ -93,11 +99,6 @@ if [[ -z $FF_PATH ]]; then
 fi;
 
 
-CUR_PROFILE="~/.mozilla/firefox/$TEST_PROFILE";
-if [[ -d $CUR_PROFILE ]]; then
-	rm -Rf $CUR_PROFILE;
-fi;
-
 TMP_PROFILE_NAME="$TEST_PROFILE-$RANDOM";
 
 cp -r $SCRIPT_DIR/data/$TEST_PROFILE /tmp/$TMP_PROFILE_NAME;
@@ -110,6 +111,6 @@ FF_API_PERFORMANCE=$FF_API_PERFORMANCE \
   FF_API_DEPTH=$FF_API_DEPTH \
   FF_API_URL_PER_PAGE=$FF_API_URL_PER_PAGE \
   FF_API_SEC_PER_PAGE=$FF_API_SEC_PER_PAGE \
-  $TIMEOUT_CMD xvfb-run --auto-servernum --server-args='-screen 0 1280x1024x24' $FF_PATH --profile /tmp/$TMP_PROFILE_NAME;
+  $TIMEOUT_CMD $XVFB_CMD $FF_PATH --profile /tmp/$TMP_PROFILE_NAME;
 
 rm -Rf /tmp/$TMP_PROFILE_NAME;

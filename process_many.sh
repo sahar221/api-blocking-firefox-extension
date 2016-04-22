@@ -14,7 +14,6 @@ else
   NUM_PROCESSES=$3;
 fi;
 
-
 measure_domain() {
 
   DEST_DIR=$1;
@@ -52,7 +51,7 @@ measure_domain() {
 
   local FF_PATH=`which firefox`;
 
-  ./run.sh -b $FF_PATH $BLOCK_FLAG -u http://$DOMAIN $SUBDOMAINS_ARG > $DEST_FILE;
+  ./run.sh -b $FF_PATH $BLOCK_FLAG -u http://$DOMAIN $SUBDOMAINS_ARG -x > $DEST_FILE;
 }
 export -f measure_domain;
 

@@ -258,8 +258,6 @@
                 if (!isUrlOnCurrentPage(newUrl)) {
                     UICGLOBAL.debug("Detected click on anchor with href: " + newUrl);
                     requestedUrls.add(newUrl);
-                    event.currentTarget.href = "";
-                    event.preventDefault();
                 }
             };
             documentObserver = new MutationObserver(function (mutations) {
@@ -492,14 +490,12 @@
         UICGLOBAL.debug("Instrumenting for top page: " + window.location.toString());
 
         origAddEventListener.call(document, "DOMContentLoaded", function (event) {
-            Array.prototype.forEach.call(origQuerySelectorAll.call(document, "a"), function (anAnchor) {
-                origAddEventListener.call(anAnchor, "click", sharedAnchorEventListiner, false);
-                sharedAnchorEventListiner.onclick = sharedAnchorEventListiner;
-            });
 
             origSetTimeout.call(window, function () {
                 var anchorTags = origQuerySelectorAll.call(document, "a[href]"),
-                    hrefs = Array.prototype.map.call(anchorTags, a => a.href);
+                    hrefs = Array.prototype.map.call(anchorTags, function (a) {
+                        return a.href;
+                    });
                 UICGLOBAL.reportUsedFeatures(recordedFeatures, featureTimeline);
                 UICGLOBAL.reportFoundUrls(requestedUrls.all(), hrefs);
             }, UICGLOBAL.secPerPage * 1000);

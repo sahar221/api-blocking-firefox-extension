@@ -1,7 +1,8 @@
 "use strict";
 
+const { Cc, Ci, Cr } = require("chrome");
 
-var debug = false,
+var debug = true,
     timers = require("sdk/timers"),
     pageMod = require("sdk/page-mod"),
     tabs = require("sdk/tabs"),
@@ -12,8 +13,11 @@ var debug = false,
     fileIO = require("sdk/io/file"),
     urlLib = require("sdk/url"),
     urlPriorityLib = require("lib/urls"),
+    pbUtils = require('lib/pbUtils'),
     events = require("sdk/system/events"),
+    tabUtils = require("sdk/tabs/utils"),
     featuresRuleParser = require("lib/featureParser"),
+    observerService = Cc["@mozilla.org/observer-service;1"].getService(Ci.nsIObserverService),
     featuresToCount = featuresRuleParser.parse("features.csv"),
     visitedUrls = new Set(),
     allowedDomains = [],
@@ -27,6 +31,44 @@ var debug = false,
     javascriptMeasurements,
     currentProcessFeatures = {},
     debugMessage;
+
+
+
+observerService.addObserver({
+  observe: function (subject, topic, data) {
+
+    var httpChannel,
+        channelTab,
+        tabWindow,
+        readyState;
+
+    if (topic !== "http-on-modify-request") {
+      return;
+    }
+
+    httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
+    channelTab = pbUtils.getTabForChannel(httpChannel);
+
+    if (!channelTab) {
+      return;
+    }
+
+    if (!httpChannel.isMainDocumentChannel) {
+      return;
+    }
+
+    tabWindow = tabUtils.getTabContentWindow(channelTab);
+    readyState = tabWindow.document.readyState;
+
+    if (readyState !== "complete" || String(tabWindow.location.href) === "about:blank") {
+      debugMessage(httpChannel.URI.spec + ": Allowing new resource, Looks like the initial load on the tab");
+      return;
+    }
+
+    debugMessage(httpChannel.URI.spec + ": Blocking new resource: looks like something trying to change the page");
+    httpChannel.cancel(Cr.NS_BINDING_ABORTED);
+  }
+}, "http-on-modify-request", false);
 
 
 /**
@@ -63,6 +105,11 @@ args = {
     performance: env.FF_API_PERFORMANCE,
     jsReport: (env.FF_API_JS_REPORT === "1")
 };
+
+
+if (env.FF_API_DEBUG) {
+    debug = true;
+}
 
 
 allowedDomains = allowedDomains.concat(args.domains);
@@ -257,7 +304,7 @@ makePageModObj = function (isForIFrame) {
                 if (tabs.length === 0) {
                     system.exit(0);
                 }
-            }, args.secPerPage * 2000);
+            }, args.secPerPage * 2500);
 
             treeDepth = tabTree.depth(currentTabId);
             if (treeDepth >= args.depth) {
