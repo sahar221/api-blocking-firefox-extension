@@ -61,11 +61,11 @@ while [[ 1 ]]; do
   NUM_MEASUREMENTS=$(($NUM_MEASUREMENTS + 1));
   echo "Round $NUM_MEASUREMENTS";
 
-  cat $SOURCE_FILE | parallel --env measure_domain -j $NUM_PROCESSES "measure_domain $DEST_DIR {}";
-  DEFAULT_CASE_PID=$!;
-
   cat $SOURCE_FILE | parallel --env measure_domain -j $NUM_PROCESSES "measure_domain $DEST_DIR {} e";
   BLOCKING_CASE_PID=$!;
+
+  cat $SOURCE_FILE | parallel --env measure_domain -j $NUM_PROCESSES "measure_domain $DEST_DIR {}";
+  DEFAULT_CASE_PID=$!;
 
   wait $DEFAULT_CASE_PID;
   wait $BLOCKING_CASE_PID;
