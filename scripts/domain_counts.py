@@ -33,7 +33,7 @@ def domain_and_type_for_file(file_name):
 def json_from_path(file_path):
   with open(file_path, 'r') as h:
     for line in h:
-      if line[0:20] != "FF-API-EXTENSION: {":
+      if line[0:20] != 'FF-API-EXTENSION: {"':
         continue
       return line[18:]
   return None
@@ -69,13 +69,14 @@ for dirpath, dirnames, filenames in os.walk(args.source):
     if current_count >= args.goal:
       continue
 
-    a_measurement_json = json_from_path(os.path.join(dirpath, a_filename))
+    data_path = os.path.join(dirpath, a_filename)
+    a_measurement_json = json_from_path(data_path)
     if not a_measurement_json:
       continue
 
     report_name = "{} {} {}.json".format(domain, test_type, current_count + 1)
     report_path = os.path.join(args.destination, report_name)
-    dest_h = open(report_path, 'r')
+    dest_h = open(report_path, 'w')
     dest_h.write(a_measurement_json)
     dest_h.close()
     add_count_for_domain_and_type(domain, test_type)
