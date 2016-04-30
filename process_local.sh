@@ -49,7 +49,7 @@ measure_domain() {
     echo "Measuring $DOMAIN ($INDEX) - blocking";
   fi;
 
-  ./run.sh -b /Applications/Firefox.app/Contents/MacOS/firefox $BLOCK_FLAG -u http://$DOMAIN $SUBDOMAINS_ARG > $DEST_FILE;
+  ./run.sh -b ~/firefox/firefox $BLOCK_FLAG -u http://$DOMAIN $SUBDOMAINS_ARG > $DEST_FILE;
 }
 export -f measure_domain;
 

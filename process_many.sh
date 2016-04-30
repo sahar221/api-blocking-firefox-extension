@@ -49,7 +49,7 @@ measure_domain() {
     echo "Measuring $DOMAIN ($INDEX) - blocking";
   fi;
 
-  local FF_PATH=`which firefox`;
+  local FF_PATH="/home/psnyde2/firefox/firefox";
 
   ./run.sh -b $FF_PATH $BLOCK_FLAG -u http://$DOMAIN $SUBDOMAINS_ARG -x > $DEST_FILE;
 }
