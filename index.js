@@ -77,7 +77,10 @@ if (env.FF_API_DEBUG) {
 
 
 allowedDomains = allowedDomains.concat(args.domains);
-allowedDomains.push((new urlLib.URL(args.url)).host);
+try {
+    allowedDomains.push((new urlLib.URL(args.url)).host);
+} catch (e) {};
+
 
 
 observerService.addObserver({
@@ -132,17 +135,17 @@ observerService.addObserver({
         }
 
         httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
-        // authHeader = httpChannel.getResponseHeader("WWW-Authenticate");
-        // if (!!authHeader) {
-        //     httpChannel.suspend();
-        //     httpChannel.cancel(Cr.NS_BINDING_ABORTED);
-        //     console.log(httpChannel.URI.spec + ": Blocking response, seems to require HTTP authentication");
-        //     return;
-        // }
-
         channelTab = pbUtils.getTabForChannel(httpChannel);
 
         if (!channelTab) {
+            return;
+        }
+
+        authHeader = httpChannel.getResponseHeader("WWW-Authenticate");
+        if (!!authHeader) {
+            httpChannel.cancel(Cr.NS_BINDING_ABORTED);
+            modelFor(channelTab).close();
+            console.log(httpChannel.URI.spec + ": Blocking response, seems to require HTTP authentication");
             return;
         }
 
@@ -402,7 +405,7 @@ if (args.url || args.manual || args.performance) {
     events.on("quit-application", onExit, true);
     if (!args.manual) {
         timers.setTimeout(function () {
-              tabs.activeTab.url = args.url;
+            tabs.activeTab.url = args.url;
         }, 1000);
     }
 } else {
