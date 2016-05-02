@@ -35,26 +35,26 @@
 
     reportUsedFeatures = function (features, featureTimeline) {
 
-        var coallecedTimeline = featureTimeline.reduce(function (prev, cur) {
+        // var coallecedTimeline = featureTimeline.reduce(function (prev, cur) {
 
-            var lastSeenLoopIndex = prev[1],
-                featureId = cur[0],
-                currentLoopIndex = cur[1];
+        //     var lastSeenLoopIndex = prev[1],
+        //         featureId = cur[0],
+        //         currentLoopIndex = cur[1];
 
-            if (lastSeenLoopIndex === currentLoopIndex) {
-                prev[0][prev[0].length - 1].push(featureId);
-            } else {
-                prev[0].push([featureId]);
-                prev[1] = currentLoopIndex;
-            }
+        //     if (lastSeenLoopIndex === currentLoopIndex) {
+        //         prev[0][prev[0].length - 1].push(featureId);
+        //     } else {
+        //         prev[0].push([featureId]);
+        //         prev[1] = currentLoopIndex;
+        //     }
 
-            return prev;
+        //     return prev;
 
-        }, [[], -1]);
+        // }, [[], -1]);
 
         self.port.emit("content-request-record-used-features", {
             features: features,
-            timeline: coallecedTimeline[0],
+            timeline: null, // coallecedTimeline[0],
             url: unsafeWindow.location.toString.call(unsafeWindow.location)
         });
     };
@@ -309,6 +309,21 @@
                 return allPurposeProxy;
             };
         }
+        
+
+        // Override DOM features that interrupt program flow, since it can
+        // keep firefox from exiting cleanly.
+        window.alert = function () {
+            recordUsedFeature(["window", "alert"]);
+        };
+        window.confirm = function () {
+            recordUsedFeature(["window", "confirm"]);
+            return true;
+        };
+        window.prompt = function (message, defaultMessage) {
+            recordUsedFeature(["window", "prompt"]);
+            return defaultMessage;
+        };
 
 
         recordUsedFeature = function (featureName) {
@@ -323,7 +338,7 @@
                 recordedFeatures[featureName].count += 1;
             }
 
-            featureTimeline.push([recordedFeatures[featureName].id, eventLoopTurnIndex]);
+            // featureTimeline.push([recordedFeatures[featureName].id, eventLoopTurnIndex]);
         };
 
 

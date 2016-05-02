@@ -13,17 +13,9 @@ Provides information about the default web browser:$
 Default Browser Helper:$
 1
 0:application/apple-default-browser:Provides information about the default web browser::$
-CitrixOnlineWebDeploymentPlugin.plugin:$
-/Users/snyderp/Library/Internet Plug-Ins/CitrixOnlineWebDeploymentPlugin.plugin:$
-1.0.105:$
-1366932480000:0:0:0:$
-Plugin that detects installed Citrix Online products (visit www.citrixonline.com).:$
-Citrix Online Web Deployment Plugin 1.0.0.105:$
-1
-0:application/x-col-application-detector:Citrix Online Application Detector::$
 
 [INVALID]
-/Library/Internet Plug-Ins/Disabled Plug-Ins:$
-1440295931000:$
 /Library/Internet Plug-Ins/Quartz Composer.webplugin:$
 1438506744000:$
+/Library/Internet Plug-Ins/Disabled Plug-Ins:$
+1440295931000:$
