@@ -2,7 +2,7 @@
 
 const { Cc, Ci, Cr } = require("chrome");
 
-var debug = true,
+var debug = false,
     timers = require("sdk/timers"),
     pageMod = require("sdk/page-mod"),
     tabs = require("sdk/tabs"),
@@ -19,6 +19,7 @@ var debug = true,
     featuresRuleParser = require("lib/featureParser"),
     observerService = Cc["@mozilla.org/observer-service;1"].getService(Ci.nsIObserverService),
     featuresToCount = featuresRuleParser.parse("features.csv"),
+    { modelFor } = require("sdk/model/core"),
     visitedUrls = new Set(),
     allowedDomains = [],
     performanceMeasures = {},
@@ -34,45 +35,6 @@ var debug = true,
 
 
 
-observerService.addObserver({
-  observe: function (subject, topic, data) {
-
-    var httpChannel,
-        channelTab,
-        tabWindow,
-        readyState,
-        windowLocation;
-
-    if (topic !== "http-on-modify-request") {
-      return;
-    }
-
-    httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
-    channelTab = pbUtils.getTabForChannel(httpChannel);
-
-    if (!channelTab) {
-      return;
-    }
-
-    if (!httpChannel.isMainDocumentChannel) {
-      return;
-    }
-
-    tabWindow = tabUtils.getTabContentWindow(channelTab);
-    readyState = tabWindow.document.readyState;
-    windowLocation = String(tabWindow.location.href);
-
-    if (readyState !== "complete" || windowLocation.indexOf("http") !== 0) {
-      debugMessage(httpChannel.URI.spec + ": Allowing new resource, Looks like the initial load on the tab");
-      return;
-    }
-
-    debugMessage(httpChannel.URI.spec + ": Blocking new resource: looks like something trying to change the page");
-    httpChannel.cancel(Cr.NS_BINDING_ABORTED);
-  }
-}, "http-on-modify-request", false);
-
-
 /**
  * Parses and wraps  line arguments given to the extension.  Valid
  * env options are the following:
@@ -85,7 +47,7 @@ observerService.addObserver({
  *   - FF_API_SEC_PER_PAGE (int): The number of seconds to wait before
  *                                 searching the page for URLs to load.
  *                                 Defaults to 10 seconds.
- *   - FF_API_DOMAINS (string): A comma separated list of domains that
+ *   - FF_API_RELATED_DOMAINS (string): A comma separated list of domains that
  *                              we accept clicks to.
  *   - FF_API_MANUAL (int): If set to 1, then no page will be automatically
  *                          opened, and no links will be automatically followed
@@ -115,6 +77,90 @@ if (env.FF_API_DEBUG) {
 
 
 allowedDomains = allowedDomains.concat(args.domains);
+allowedDomains.push((new urlLib.URL(args.url)).host);
+
+
+observerService.addObserver({
+    observe: function (subject, topic, data) {
+
+        var httpChannel,
+            channelTab,
+            tabWindow,
+            readyState,
+            windowLocation
+
+        if (topic !== "http-on-modify-request") {
+            return;
+        }
+
+        httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
+        channelTab = pbUtils.getTabForChannel(httpChannel);
+
+        if (!channelTab) {
+            return;
+        }
+
+        if (!httpChannel.isMainDocumentChannel) {
+            return;
+        }
+
+        tabWindow = tabUtils.getTabContentWindow(channelTab);
+        readyState = tabWindow.document.readyState;
+        windowLocation = String(tabWindow.location.href);
+
+        if (readyState !== "complete" || windowLocation.indexOf("http") !== 0) {
+            debugMessage(httpChannel.URI.spec + ": Allowing new resource, Looks like the initial load on the tab");
+            return;
+        }
+
+        debugMessage(httpChannel.URI.spec + ": Blocking new resource: looks like something trying to change the page");
+        httpChannel.cancel(Cr.NS_BINDING_ABORTED);
+    }
+}, "http-on-modify-request", false);
+
+
+observerService.addObserver({
+    observe: function (subject, topic, data) {
+
+        var httpChannel,
+            channelTab,
+            contentType,
+            authHeader;
+
+        if (topic !== "http-on-examine-response") {
+            return;
+        }
+
+        httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
+        // authHeader = httpChannel.getResponseHeader("WWW-Authenticate");
+        // if (!!authHeader) {
+        //     httpChannel.suspend();
+        //     httpChannel.cancel(Cr.NS_BINDING_ABORTED);
+        //     console.log(httpChannel.URI.spec + ": Blocking response, seems to require HTTP authentication");
+        //     return;
+        // }
+
+        channelTab = pbUtils.getTabForChannel(httpChannel);
+
+        if (!channelTab) {
+            return;
+        }
+
+        if (!httpChannel.isMainDocumentChannel) {
+            return;
+        }
+
+        contentType = httpChannel.getResponseHeader("Content-Type");
+        if (contentType === "application/octet-stream") {
+            httpChannel.cancel(Cr.NS_BINDING_ABORTED);
+            debugMessage(httpChannel.URI.spec + ": Blocking response, seems to be a non-HTML request");
+            modelFor(channelTab).close();
+            return;
+        }
+    }
+}, "http-on-examine-response");
+
+
 if (!args.manual && !args.performance) {
     gremlinSource = self.data.load("content/gremlins.js");
 }
