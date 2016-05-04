@@ -27,13 +27,14 @@ measure_domain() {
   if [[ $BLOCK_FLAG == "e" ]]; then
     BLOCK_FLAG="-e";
     BLOCK_NAME="-blocking"
-  elif [[ $BLOCK_NAME == "a" ]]; then
+  elif [[ $BLOCK_FLAG == "a" ]]; then
     BLOCK_FLAG="-a";
     BLOCK_NAME="-adblock";
-  elif [[ $BLOCK_NAME == "t" ]]; then
+  elif [[ $BLOCK_FLAG == "t" ]]; then
     BLOCK_FLAG="-t";
     BLOCK_NAME="-tracking";
   else
+    BLOCK_FLAG="";
     BLOCK_NAME="";
   fi;
 
@@ -75,6 +76,7 @@ while [[ 1 ]]; do
     fi;
 
     cat $SOURCE_FILE | parallel --env measure_domain -j $NUM_PROCESSES "measure_domain $DEST_DIR {} $ARG";
+    exit;
     PARALLEL_PID=$!;
     wait $PARALLEL_PID;
   done;
