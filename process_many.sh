@@ -53,7 +53,7 @@ measure_domain() {
   if [[ -z $BLOCK_FLAG ]]; then
     echo "Measuring $DOMAIN ($INDEX) - default";
   else
-    echo "Measuring $DOMAIN ($INDEX) - blocking";
+    echo "Measuring $DOMAIN ($INDEX) - $BLOCK_NAME";
   fi;
 
   local FF_PATH="/home/psnyde2/firefox/firefox";
@@ -76,7 +76,6 @@ while [[ 1 ]]; do
     fi;
 
     cat $SOURCE_FILE | parallel --env measure_domain -j $NUM_PROCESSES "measure_domain $DEST_DIR {} $ARG";
-    exit;
     PARALLEL_PID=$!;
     wait $PARALLEL_PID;
   done;
