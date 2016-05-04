@@ -36,8 +36,21 @@ TIMEOUT_CMD="timeout 240";
 FF_API_PERFORMANCE="";
 XVFB_CMD="";
 
-while getopts r:n:s:b:u:d:mejx opt; do
+
+TRACKING_PROFILE="1c5c8f0.Tracking";
+ADBLOCK_PROFILE="f8175c3.Ads";
+
+
+while getopts r:n:s:b:u:d:mejxat opt; do
   case $opt in
+    a)
+      TEST_PROFILE=$ADBLOCK_PROFILE;
+      ;;
+
+    t)
+      TEST_PROFILE=$TRACKING_PROFILE;
+      ;;
+
     x)
       XVFB_CMD="xvfb-run --auto-servernum --server-args='-screen 0 1280x1024x24'";
       ;;

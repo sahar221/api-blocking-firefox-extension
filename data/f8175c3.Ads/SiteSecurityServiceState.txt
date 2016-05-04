@@ -1,0 +1,6 @@
+addons.mozilla.org:HSTS	1	16925	1493863009042,1,0
+services.addons.mozilla.org:HSTS	7	16925	1493863007304,1,0
+self-repair.mozilla.org:HSTS	1	16925	1462330604840,1,1
+addons.cdn.mozilla.net:HSTS	2	16925	1493862926222,1,0
+easylist-downloads.adblockplus.org:HSTS	2	16925	1493863010083,1,0
+notification.adblockplus.org:HSTS	1	16913	1492840739651,1,0
