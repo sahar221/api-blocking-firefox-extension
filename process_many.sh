@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 if [[ $# < 2 ]]; then
-	echo "Usage: ./process_many.sh <domain list> <path> [num processes]";
+	echo "Usage: ./process_many.sh <domain list> <path> [num processes] [test flags...]";
 	exit 1;
 fi;
 
@@ -24,9 +24,15 @@ measure_domain() {
   SUBDOMAINS=`echo $LINE | awk -F';' '{print $2}'`;
   INDEX=0;
 
-  if [[ -n $BLOCK_FLAG ]]; then
+  if [[ $BLOCK_FLAG == "e" ]]; then
     BLOCK_FLAG="-e";
     BLOCK_NAME="-blocking"
+  elif [[ $BLOCK_NAME == "a" ]]; then
+    BLOCK_FLAG="-a";
+    BLOCK_NAME="-adblock";
+  elif [[ $BLOCK_NAME == "t" ]]; then
+    BLOCK_FLAG="-t";
+    BLOCK_NAME="-tracking";
   else
     BLOCK_NAME="";
   fi;
@@ -61,13 +67,20 @@ while [[ 1 ]]; do
   NUM_MEASUREMENTS=$(($NUM_MEASUREMENTS + 1));
   echo "Round $NUM_MEASUREMENTS";
 
-  cat $SOURCE_FILE | parallel --env measure_domain -j $NUM_PROCESSES "measure_domain $DEST_DIR {} e";
-  BLOCKING_CASE_PID=$!;
+  TEST_INDEX=0;
+  for ARG in $@; do
+    TEST_INDEX=$(($TEST_INDEX + 1));
+    if [[ $TEST_INDEX -lt 4 ]]; then
+      continue;
+    fi;
 
-  cat $SOURCE_FILE | parallel --env measure_domain -j $NUM_PROCESSES "measure_domain $DEST_DIR {}";
-  DEFAULT_CASE_PID=$!;
+    cat $SOURCE_FILE | parallel --env measure_domain -j $NUM_PROCESSES "measure_domain $DEST_DIR {} $ARG";
+    PARALLEL_PID=$!;
+    wait $PARALLEL_PID;
+  done;
 
-  wait $DEFAULT_CASE_PID;
-  wait $BLOCKING_CASE_PID;
+  if [[ -d /tmp/mozilla_psnyde20 ]]; then
+    rm -Rf /tmp/mozilla_psnyde20
+  fi;
 done;
 

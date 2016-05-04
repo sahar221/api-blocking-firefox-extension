@@ -1,0 +1,21 @@
+Generated File. Do not edit.
+
+[HEADER]
+Version:0.17:$
+Arch:x86_64-gcc3:$
+
+[PLUGINS]
+Default Browser.plugin:$
+/Library/Internet Plug-Ins/Default Browser.plugin:$
+601:$
+1455432841000:0:0:0:$
+Provides information about the default web browser:$
+Default Browser Helper:$
+1
+0:application/apple-default-browser:Provides information about the default web browser::$
+
+[INVALID]
+/Library/Internet Plug-Ins/Quartz Composer.webplugin:$
+1438506744000:$
+/Library/Internet Plug-Ins/Disabled Plug-Ins:$
+1440295931000:$
