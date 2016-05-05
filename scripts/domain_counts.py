@@ -21,12 +21,14 @@ args = parser.parse_args()
 
 
 def domain_and_type_for_file(file_name):
-  blocking_matches = re.search('(.*?)-[0-9]+-blocking\.json', file_name)
-  if blocking_matches:
-    return "blocking", blocking_matches.group(1)
+  matches = re.search('(.*?)-[0-9]+-(.*?)\.json', file_name)
+  if matches:
+    return matches.group(2), matches.group(1)
+
   default_matches = re.search('(.*?)-[0-9]+\.json', file_name)
   if default_matches:
     return "default", default_matches.group(1)
+
   return None, None
 
 
@@ -45,12 +47,14 @@ report_h.close()
 type_to_index = {
   "default": 0,
   "blocking": 1,
+  "adblock": 2,
+  "tracking": 3
 }    
 
 
 def count_for_domain_and_type(a_domain, a_test_type):
   if a_domain not in report_dict:
-    report_dict[a_domain] = [0, 0]
+    report_dict[a_domain] = [0, 0, 0, 0]
   return report_dict[a_domain][type_to_index[a_test_type]] 
 
 
