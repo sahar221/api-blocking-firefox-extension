@@ -82,86 +82,87 @@ try {
 } catch (e) {};
 
 
+if (!args.manual) {
+    observerService.addObserver({
+        observe: function (subject, topic, data) {
 
-observerService.addObserver({
-    observe: function (subject, topic, data) {
+            var httpChannel,
+                channelTab,
+                tabWindow,
+                readyState,
+                windowLocation
 
-        var httpChannel,
-            channelTab,
-            tabWindow,
-            readyState,
-            windowLocation
+            if (topic !== "http-on-modify-request") {
+                return;
+            }
 
-        if (topic !== "http-on-modify-request") {
-            return;
-        }
+            httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
+            channelTab = pbUtils.getTabForChannel(httpChannel);
 
-        httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
-        channelTab = pbUtils.getTabForChannel(httpChannel);
+            if (!channelTab) {
+                return;
+            }
 
-        if (!channelTab) {
-            return;
-        }
+            if (!httpChannel.isMainDocumentChannel) {
+                return;
+            }
 
-        if (!httpChannel.isMainDocumentChannel) {
-            return;
-        }
+            tabWindow = tabUtils.getTabContentWindow(channelTab);
+            readyState = tabWindow.document.readyState;
+            windowLocation = String(tabWindow.location.href);
 
-        tabWindow = tabUtils.getTabContentWindow(channelTab);
-        readyState = tabWindow.document.readyState;
-        windowLocation = String(tabWindow.location.href);
+            if (readyState !== "complete" || windowLocation.indexOf("http") !== 0) {
+                debugMessage(httpChannel.URI.spec + ": Allowing new resource, Looks like the initial load on the tab");
+                return;
+            }
 
-        if (readyState !== "complete" || windowLocation.indexOf("http") !== 0) {
-            debugMessage(httpChannel.URI.spec + ": Allowing new resource, Looks like the initial load on the tab");
-            return;
-        }
-
-        debugMessage(httpChannel.URI.spec + ": Blocking new resource: looks like something trying to change the page");
-        httpChannel.cancel(Cr.NS_BINDING_ABORTED);
-    }
-}, "http-on-modify-request", false);
-
-
-observerService.addObserver({
-    observe: function (subject, topic, data) {
-
-        var httpChannel,
-            channelTab,
-            contentType,
-            authHeader;
-
-        if (topic !== "http-on-examine-response") {
-            return;
-        }
-
-        httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
-        channelTab = pbUtils.getTabForChannel(httpChannel);
-
-        if (!channelTab) {
-            return;
-        }
-
-        authHeader = httpChannel.getResponseHeader("WWW-Authenticate");
-        if (!!authHeader) {
+            debugMessage(httpChannel.URI.spec + ": Blocking new resource: looks like something trying to change the page");
             httpChannel.cancel(Cr.NS_BINDING_ABORTED);
-            modelFor(channelTab).close();
-            console.log(httpChannel.URI.spec + ": Blocking response, seems to require HTTP authentication");
-            return;
         }
+    }, "http-on-modify-request", false);
 
-        if (!httpChannel.isMainDocumentChannel) {
-            return;
-        }
 
-        contentType = httpChannel.getResponseHeader("Content-Type");
-        if (contentType === "application/octet-stream") {
-            httpChannel.cancel(Cr.NS_BINDING_ABORTED);
-            debugMessage(httpChannel.URI.spec + ": Blocking response, seems to be a non-HTML request");
-            modelFor(channelTab).close();
-            return;
+    observerService.addObserver({
+        observe: function (subject, topic, data) {
+
+            var httpChannel,
+                channelTab,
+                contentType,
+                authHeader;
+
+            if (topic !== "http-on-examine-response") {
+                return;
+            }
+
+            httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
+            channelTab = pbUtils.getTabForChannel(httpChannel);
+
+            if (!channelTab) {
+                return;
+            }
+
+            authHeader = httpChannel.getResponseHeader("WWW-Authenticate");
+            if (!!authHeader) {
+                httpChannel.cancel(Cr.NS_BINDING_ABORTED);
+                modelFor(channelTab).close();
+                console.log(httpChannel.URI.spec + ": Blocking response, seems to require HTTP authentication");
+                return;
+            }
+
+            if (!httpChannel.isMainDocumentChannel) {
+                return;
+            }
+
+            contentType = httpChannel.getResponseHeader("Content-Type");
+            if (contentType === "application/octet-stream") {
+                httpChannel.cancel(Cr.NS_BINDING_ABORTED);
+                debugMessage(httpChannel.URI.spec + ": Blocking response, seems to be a non-HTML request");
+                modelFor(channelTab).close();
+                return;
+            }
         }
-    }
-}, "http-on-examine-response");
+    }, "http-on-examine-response");
+}
 
 
 if (!args.manual && !args.performance) {

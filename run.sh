@@ -107,6 +107,14 @@ if [[ -z $FF_API_URL ]] && [[ $FF_API_MANUAL == 0 ]]; then
 fi;
 
 
+if [[ -n $FF_API_URL ]] && [[ $FF_API_MANUAL != 0 ]]; then
+  FF_URL_PARAM=" --url $FF_API_URL";
+else
+  FF_URL_PARAM="";
+fi;
+
+
+
 if [[ -z $FF_PATH ]]; then
   FF_PATH="/home/psnyde2/firefox/firefox";
 fi;
@@ -125,8 +133,8 @@ FF_API_PERFORMANCE=$FF_API_PERFORMANCE \
   FF_API_URL_PER_PAGE=$FF_API_URL_PER_PAGE \
   FF_API_SEC_PER_PAGE=$FF_API_SEC_PER_PAGE \
   $TIMEOUT_CMD \
-  xvfb-run --auto-servernum --server-args='-screen 0 1280x1024x24' \
-  $FF_PATH --profile /tmp/$TMP_PROFILE_NAME;
+  $FF_PATH --profile /tmp/$TMP_PROFILE_NAME \
+  $FF_URL_PARAM;
 
 rm -Rf /tmp/$TMP_PROFILE_NAME;
 
