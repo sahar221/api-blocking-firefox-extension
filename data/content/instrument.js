@@ -404,7 +404,7 @@
             // UICGLOBAL.debug(propertyName + ": Debugging property setting feature");
 
             if (propertyLookupResult === null) {
-                UICGLOBAL.debug("Unable to find feature for property rule: " + featureName);
+                UICGLOBAL.debug("Unable to find feature for property rule: " + propertyName);
                 return false;
             }
 

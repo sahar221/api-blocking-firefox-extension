@@ -24,7 +24,7 @@ while read URL; do
   DEFAULT_PID=$!;
   wait $DEFAULT_PID;
 
-  $SCRIPT_DIR/../run.sh -b $FIREFOX -t -m -u $URL > "$DEST_DIR/$URL blocking.json";
+  $SCRIPT_DIR/../run.sh -b $FIREFOX -e -m -u $URL > "$DEST_DIR/$URL blocking.json";
   BLOCKING_PID=$!;
   wait $BLOCKING_PID;
 done;
