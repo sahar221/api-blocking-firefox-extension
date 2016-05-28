@@ -35,23 +35,6 @@
 
     reportUsedFeatures = function (features, featureTimeline) {
 
-        // var coallecedTimeline = featureTimeline.reduce(function (prev, cur) {
-
-        //     var lastSeenLoopIndex = prev[1],
-        //         featureId = cur[0],
-        //         currentLoopIndex = cur[1];
-
-        //     if (lastSeenLoopIndex === currentLoopIndex) {
-        //         prev[0][prev[0].length - 1].push(featureId);
-        //     } else {
-        //         prev[0].push([featureId]);
-        //         prev[1] = currentLoopIndex;
-        //     }
-
-        //     return prev;
-
-        // }, [[], -1]);
-
         self.port.emit("content-request-record-used-features", {
             features: features,
             timeline: null, // coallecedTimeline[0],
@@ -309,7 +292,7 @@
                 return allPurposeProxy;
             };
         }
-        
+
 
         // Override DOM features that interrupt program flow, since it can
         // keep firefox from exiting cleanly.
